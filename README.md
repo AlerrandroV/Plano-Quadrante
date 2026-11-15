@@ -1,7 +1,8 @@
 # Plano Quadrante
 
-Jogo educativo sobre o plano cartesiano. O mesmo código roda de três jeitos,
-e **descobre sozinho** em qual está:
+Jogo de tabuleiro 9×9 sobre o plano cartesiano, para 2 a 4 jogadores, com
+visual retrô pixelado. O mesmo código roda de três jeitos, e **descobre
+sozinho** em qual está:
 
 | Onde abre | Modo | Como se joga |
 |---|---|---|
@@ -9,9 +10,47 @@ e **descobre sozinho** em qual está:
 | App Android (APK) | **Criador da sala** | O app abre um servidor no celular e mostra um QR code. |
 | Navegador de um amigo, pelo QR code | **Jogador** | Basta estar no mesmo Wi-Fi (ou no hotspot de quem criou a sala). Funciona em Android e iPhone, sem instalar nada. |
 
-> ⚠️ O jogo atual ("Caça ao Quadrante") é **provisório**: serve para testar a
-> estrutura. As regras reais do Plano Quadrante entram no lugar dele (veja
-> [Trocar o jogo](#trocar-o-jogo)).
+## Regras
+
+Cada jogador tem 8 peões na reserva. O tabuleiro tem 81 interseções, de
+(-4, -4) a (4, 4), com o centro em (0, 0). A moldura tem cores fixas:
+azul em cima, laranja à direita, verde embaixo e vermelho à esquerda.
+
+1. **Na sua vez, role os dois dados octaedros (1 a 4).** O dado *quente* anda
+   na horizontal: vermelho para a esquerda, laranja para a direita. O dado
+   *frio* anda na vertical: verde para baixo, azul para cima.
+2. **Use um dos dois dados** para:
+   - **colocar** uma peça da reserva, contando a partir do centro: em (dado quente, 0) ou (0, dado frio);
+   - **mover** uma peça sua essa quantidade de casas na direção do dado.
+3. **Tabuleiro infinito:** quem sai por um lado volta pelo outro.
+4. **Captura (obrigatória):** cair numa peça inimiga a captura. Ela vai para
+   o seu **cativeiro**, a sua peça sobe um nível (máximo 4) e você joga de novo.
+   Uma peça colocada capturando já entra no nível 1.
+5. **Bônus de nível:** depois de mover, uma peça de nível N pode andar até N
+   casas extras em linha reta, em qualquer uma das 8 direções. Pode pular por
+   cima das próprias peças e capturar no fim.
+6. **Cartas:** dados com o mesmo número dão uma carta especial, que você usa
+   na hora ou descarta: Bloqueio, Reverso, Salvar, +1 de nível, -1 de nível e
+   Jogar novamente.
+7. **Vitória:** vence quem tiver **6 inimigos em cativeiro** (com 2 jogadores)
+   ou **8** (com 3 ou 4), ou quem sobrar com peças. Quem fica sem nenhuma peça
+   é eliminado. Quando restam 2 jogadores, quem ficar com 2 peças ou menos no
+   tabuleiro e nenhuma na reserva também é eliminado.
+
+### Decisões tomadas onde as fontes discordavam
+
+O PDF de regras, o `manual.html` e o protótipo (`script.js`) às vezes
+dizem coisas diferentes. Estas foram as escolhas (todas marcadas com
+`DECISÃO` em `web/js/game/plano.js`):
+
+| Ponto | Escolha | Por quê |
+|---|---|---|
+| Para onde vai a peça capturada | Cativeiro de quem capturou (manual) | No PDF/protótipo ela voltava para a reserva do dono, então as peças nunca acabavam e **a partida não terminava**. |
+| Usar um ou os dois dados | Um só (protótipo) | Foi a decisão registrada no protótipo. |
+| Empilhar peças amigas | Não pode (protótipo) | O manual permitia até 2. |
+| Cartas | Usar na hora ou descartar (PDF/protótipo) | Por isso *Trocar baralho* e *Contra-ataque* ficaram fora do sorteio: só fazem sentido com cartas guardadas na mão. |
+| "Jogar novamente" | Ganha uma ação extra depois da atual | No protótipo, a carta descartava a rolagem atual. |
+| Peça travada | Se não houver jogada possível, aparece "Passar a vez" | No protótipo o jogo travava. |
 
 ## Jogando com os amigos (cada um no seu celular)
 
@@ -56,7 +95,10 @@ lugar na partida.
 ```
 web/                    o jogo (HTML/CSS/JS puro, sem build)
   js/env.js             detecção do modo + link do APK
-  js/game/              ← o jogo em si (lógica + interface)
+  js/game/plano.js      ← regras do jogo
+  js/game/plano-ui.js   ← tabuleiro, painéis, dados e animações
+  js/game/pixel.js      ← paleta e sprites em pixel art
+  vendor/fonts/         fontes pixel (Press Start 2P, VT323; licença OFL)
   js/modes/local.js     mesma tela (GitHub Pages)
   js/modes/host.js      criador da sala: QR code, lobby, autoridade do jogo
   js/modes/player.js    jogador no navegador
@@ -70,7 +112,7 @@ test/                   testes da lógica do jogo
 
 ```bash
 npm install
-npm test          # testes da lógica do jogo
+npm test          # testes das regras (inclui partidas aleatórias completas)
 npm run dev       # sobe a sala no PC
 ```
 
@@ -81,9 +123,11 @@ npm run dev       # sobe a sala no PC
 O app Android abre no Android Studio pela pasta `android/`. A pasta `web/` é
 empacotada automaticamente dentro do APK.
 
-## Trocar o jogo
+## Como o jogo se liga aos modos
 
-Todo jogo segue o mesmo contrato (veja `web/js/game/quadrantes.js`):
+As regras ficam em `web/js/game/plano.js` (funções puras, testadas em
+`test/plano.test.mjs`) e a tela em `web/js/game/plano-ui.js` +
+`pixel.js` (pixel art desenhada em canvas). O jogo segue este contrato:
 
 ```js
 meta                        // { id, name, minPlayers, maxPlayers }
@@ -94,12 +138,12 @@ activePlayers(state)        // ids de quem pode jogar agora
 render(root, view, ctx)     // desenha; ctx = { me, send(action), shared }
 ```
 
-Crie os arquivos do novo jogo e aponte `web/js/game/index.js` para eles. Os
-três modos (mesma tela, criador da sala e jogador) passam a funcionar sem
-mudar mais nada.
+Os três modos (mesma tela, criador da sala e jogador) só conversam com o
+jogo por esse contrato, então mudar uma regra não exige mexer na rede.
 
 ## Publicação (GitHub Actions)
 
+- **Regras originais:** `docs/regras-oficiais.pdf` e `docs/manual-original.html`.
 - **Site:** `.github/workflows/pages.yml` publica `web/` a cada push na
   `main`. Ative uma vez em *Settings → Pages → Source: GitHub Actions*.
 - **APK:** `.github/workflows/android.yml` compila e cria uma Release nova a

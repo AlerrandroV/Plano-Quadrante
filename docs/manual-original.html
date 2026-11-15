@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual - Plano Quadrante</title>
+<style>
+    /* Reset básico */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        background-color: #f7f7f7;
+        color: #333;
+        line-height: 1.6;
+        padding: 20px;
+    }
+
+    h1, h2, h3, h4 {
+        margin-bottom: 10px;
+    }
+
+    h1 {
+        font-size: 2.5rem;
+        color: #1e3a8a;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    h2 {
+        font-size: 1.8rem;
+        color: #1f2937;
+        margin-top: 20px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #1e3a8a;
+        padding-bottom: 5px;
+    }
+
+    h3 {
+        font-size: 1.3rem;
+        color: #111827;
+        margin-top: 15px;
+        margin-bottom: 10px;
+    }
+
+    h4 {
+        font-size: 1.1rem;
+        color: #111827;
+        margin-top: 10px;
+        margin-bottom: 5px;
+    }
+
+    p {
+        margin-bottom: 10px;
+    }
+
+    ul {
+        margin: 10px 0 15px 20px;
+    }
+
+    li {
+        margin-bottom: 8px;
+    }
+
+    code {
+        background-color: #e5e7eb;
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.95rem;
+    }
+
+    blockquote {
+        background-color: #f3f4f6;
+        border-left: 5px solid #1e3a8a;
+        padding: 10px 15px;
+        margin: 15px 0;
+        font-style: italic;
+        color: #374151;
+        border-radius: 5px;
+    }
+
+    .color-key {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .color-key div {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .color-box {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+    }
+
+    .azul { background-color: #3b82f6; }
+    .laranja { background-color: #f97316; }
+    .vermelho { background-color: #ef4444; }
+    .verde { background-color: #22c55e; }
+
+    .section {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    .important {
+        font-weight: bold;
+        color: #b91c1c;
+    }
+
+    .dice-colors {
+        display: flex;
+        gap: 15px;
+        margin-top: 5px;
+        margin-bottom: 10px;
+    }
+
+    .dice-colors div {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .dice-box {
+        width: 15px;
+        height: 15px;
+        border-radius: 3px;
+    }
+
+    .blockquote-small {
+        font-size: 0.9rem;
+        background-color: #e0f2fe;
+        border-left-color: #0284c7;
+    }
+</style>
+</head>
+<body>
+
+<h1>Manual - Plano Quadrante</h1>
+
+<div class="section">
+<h2>Posição Inicial</h2>
+<ul>
+    <li>Cada jogador começa com <strong>8 peões em reserva</strong> (fora do tabuleiro).</li>
+    <li>O tabuleiro é uma grade de 9 linhas horizontais e 9 linhas verticais; as peças se movem pelas 81 interseções.</li>
+    <li>As bordas do tabuleiro têm cores fixas, usadas como referência:</li>
+</ul>
+<div class="color-key">
+    <div><div class="color-box azul"></div> ↑ Azul</div>
+    <div><div class="color-box laranja"></div> → Laranja</div>
+    <div><div class="color-box vermelho"></div> ← Vermelho</div>
+    <div><div class="color-box verde"></div> ↓ Verde</div>
+</div>
+<ul>
+    <li>O jogo pode ser disputado por <strong>2 a 4 jogadores</strong>, cada um representando uma dessas cores.</li>
+    <li>Cada jogador recebe <strong>5 cartas aleatórias e secretas</strong>.</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Objetivo e Condição de Vitória</h2>
+<ul>
+    <li>O objetivo é <strong>capturar todos os adversários</strong>, até restar apenas um jogador em jogo.</li>
+    <li>Também é possível vencer acumulando peças inimigas em cativeiro:
+        <ul>
+            <li>Em partidas com <strong>3 ou 4 jogadores</strong> → vence quem acumular <strong>8 inimigos em cativeiro</strong> ou o último sobrevivente.</li>
+            <li>Em partidas com <strong>2 jogadores</strong> → vence quem acumular <strong>6 inimigos em cativeiro</strong>. Quem ficar com <strong>2 ou menos peças</strong> no tabuleiro é eliminado automaticamente.</li>
+        </ul>
+    </li>
+    <li>Após surgir um vencedor, os demais jogadores podem continuar a partida para definir o <strong>2º, 3º e 4º lugar</strong>.</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Jogadores e Peças</h2>
+<ul>
+    <li>Cada jogador possui até <strong>8 peças</strong> (peões).</li>
+    <li><strong>Níveis de peça:</strong> cada peça tem um nível, que aumenta a cada captura realizada:
+        <ul>
+            <li>Nível 0 → peça simples (inicial).</li>
+            <li>Níveis 1 a 4 → permitem <strong>movimentos extras em linha reta</strong> (iguais ao nível).  
+            <code>Ex.: uma peça de nível 2, após se mover respeitando os dados, pode também se mover de 0 a 2 casas extras em qualquer uma das 4 direções, sem desviar da rota.</code></li>
+        </ul>
+    </li>
+    <li>Movimentos extras são <strong>opcionais</strong> e devem ser na <strong>mesma direção</strong>.</li>
+    <li>Peças capturadas voltam para a <strong>reserva do capturador</strong> e retornam ao <strong>nível 0</strong>.</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Dados</h2>
+<ul>
+    <li>Existem <strong>2 dados octaedros (1–4, cada número repetido 2 vezes)</strong>.</li>
+    <li>Cada dado tem um conjunto de <strong>cores associado</strong>:</li>
+</ul>
+<div class="dice-colors">
+    <div><div class="dice-box vermelho"></div> Dado quente: vermelho e laranja</div>
+    <div><div class="dice-box azul"></div> Dado frio: azul e verde</div>
+</div>
+<ul>
+    <li>Ao rolar os dois dados juntos:
+        <ul>
+            <li>O número indica <strong>quantas casas mover</strong>.</li>
+            <li>A cor indica a <strong>direção</strong>, sempre em relação ao <strong>centro do tabuleiro</strong>. Ambas as direções indicadas pelos dados devem ser respeitadas.</li>
+        </ul>
+    </li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Cartas Especiais</h2>
+<ul>
+    <li>As cartas funcionam como em jogos do tipo Uno: podem <strong>ajudar você ou atrapalhar adversários</strong>.</li>
+    <li>Exemplos de efeitos:
+        <ul>
+            <li><strong>Bloqueio:</strong> Escolha alguém que ficará sem jogar por 1 rodada.</li>
+            <li><strong>Reverso:</strong> Inverte a ordem de jogada.</li>
+            <li><strong>Salvar:</strong> Resgata uma peça sua de qualquer cativeiro inimigo.¹</li>
+            <li><strong>+1 de nível:</strong> Eleva em +1 o nível de uma peça amiga.</li>
+            <li><strong>-1 de nível:</strong> Reduz em -1 o nível de uma peça inimiga.</li>
+            <li><strong>Jogar novamente:</strong> Lance os dados outra vez e realize uma nova ação.²</li>
+            <li><strong>Trocar baralho:</strong> Troque as cartas com um adversário.</li>
+            <li><strong>Contra-ataque:</strong> Útil contra <em>bloqueio</em>, <em>-1 de nível</em> e <em>reverso</em>.</li>
+        </ul>
+    </li>
+    <li>Sempre que os dois dados caem com o <strong>mesmo número</strong>, o jogador compra uma carta.</li>
+    <li>As cartas podem ser acumuladas e guardadas em segredo.</li>
+</ul>
+<blockquote class="blockquote-small">
+¹ Peças salvas, quando reintroduzidas no tabuleiro, retornam no nível 0.<br>
+² *Ação* refere-se a <strong>mover</strong> ou <strong>introduzir</strong> novas peças no tabuleiro.
+</blockquote>
+</div>
+
+<div class="section">
+<h2>Fases do Jogo</h2>
+
+<h3>1. Primeira Rodada</h3>
+<ul>
+    <li>A ordem combinada pelos jogadores deve ser respeitada; cada um, na sua vez, lança os dados simultaneamente.</li>
+    <li>O resultado define a <strong>posição inicial da primeira peça</strong> (partindo do centro, mova na direção/quantidade indicada pelos dados).</li>
+    <li>Cada jogador adiciona <strong>apenas 1 peça nessa rodada</strong>¹.</li>
+    <li>Pode-se lançar quantas cartas quiser e quando quiser, contanto que seja na sua vez de jogar.²</li>
+</ul>
+<blockquote class="blockquote-small">
+¹ Exceto em caso de captura ou carta especial que permita jogar novamente.<br>
+² Exceto se o jogador receber um ataque; nesse caso, ele pode usar a carta de contra-ataque.
+</blockquote>
+
+<h3>2. Rodadas Seguintes</h3>
+<h4>Parte 1: Sorteio</h4>
+<ul>
+    <li>O jogador lança os <strong>2 dados juntos</strong>.</li>
+    <li>Se sair o mesmo número nos 2 dados:
+        <ol>
+            <li>Compra uma carta especial, podendo usá-la antes ou depois de realizar a ação, ou guardá-la para um momento oportuno.</li>
+            <li>Escolhe entre <strong>adicionar</strong> uma peça da reserva ou <strong>mover</strong> uma peça já no tabuleiro.</li>
+        </ol>
+    </li>
+    <li>Se os números forem diferentes:
+        <ul>
+            <li><strong>Adicionar peça:</strong> igual à 1ª rodada (se ainda houver peças na reserva).</li>
+            <li><strong>Mover peça:</strong> escolha uma peça no tabuleiro e mova de acordo com os dados.</li>
+        </ul>
+    </li>
+</ul>
+
+<h4>Parte 2: Capturas</h4>
+<ul>
+    <li>Se a peça terminar o movimento em uma casa ocupada por um adversário:
+        <ul>
+            <li>A peça capturada vai para a <strong>reserva</strong> do capturador (nível zerado).</li>
+            <li>A peça capturadora <strong>ganha +1 de nível</strong>.</li>
+            <li>O jogador recebe uma <strong>nova jogada imediata</strong> (rola os dados novamente).</li>
+        </ul>
+    </li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Regras de Ocupação</h2>
+<ul>
+    <li>Casa vazia → peça entra normalmente.</li>
+    <li>Casa ocupada por peça amiga → pode empilhar (no máximo 2).</li>
+    <li>Casa com peça adversária → realizar captura.</li>
+    <li>Borda do tabuleiro → funciona em estilo <strong>Pac-Man</strong>: ao sair de um lado, a peça reaparece no lado oposto.</li>
+</ul>
+</div>
+
+</body>
+</html>

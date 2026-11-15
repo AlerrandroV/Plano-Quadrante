@@ -85,7 +85,7 @@ export function startPlayer(root) {
             const clean = n?.replace(/\s+/g, ' ').trim().slice(0, 20);
             if (clean) { store.set('pq-name', clean); relay.send({ type: 'hello', name: clean }); }
           },
-        }, '✎ Nome'),
+        }, 'Nome'),
         statusEl),
       area);
   }

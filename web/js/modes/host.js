@@ -154,12 +154,13 @@ export function startHost(root, env) {
             urls.length > 1 ? h('details', {}, h('summary', {}, 'Outros endereços'), h('ul', {}, urls.slice(1).map((u) => h('li', {}, u)))) : null,
           ]
           : h('p', { class: 'warn' }, 'Nenhuma rede encontrada. Conecte-se a um Wi-Fi ou ligue o hotspot do celular e toque em "Atualizar endereço".'),
-        h('button', { class: 'btn ghost', onclick: refreshInfo }, '↻ Atualizar endereço')),
+        h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')),
       h('section', { class: 'card' },
         h('label', { class: 'field' }, h('span', {}, 'Seu nome'), nameInput),
         h('h3', {}, `Jogadores (${players.length})`),
         h('ul', { class: 'player-list' }, players.map((p) => h('li', {}, p.name, p.host ? h('span', { class: 'tag' }, 'você') : null))),
         players.length > game.meta.maxPlayers ? h('p', { class: 'warn' }, `Máximo de ${game.meta.maxPlayers} jogadores; os últimos a entrar vão assistir.`) : null,
+        !canStart ? h('p', { class: 'muted' }, `Aguardando jogadores (mínimo ${game.meta.minPlayers}).`) : null,
         h('button', { class: 'btn wide', disabled: !canStart, onclick: startGame }, 'Começar partida')));
   }
 
@@ -168,7 +169,7 @@ export function startHost(root, env) {
     const offline = state.players.filter((p) => p.id !== HOST_ID && !clients.get(p.id)?.online);
     mount(root,
       h('div', { class: 'toolbar' },
-        h('button', { class: 'btn ghost', onclick: backToLobby }, '← Sala'),
+        h('button', { class: 'btn ghost', onclick: backToLobby }, '< Sala'),
         statusEl),
       offline.length ? h('p', { class: 'warn' }, `Desconectado: ${offline.map((p) => p.name).join(', ')}`) : null,
       area);
