@@ -2,10 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
-// Assinatura: se as variáveis abaixo existirem (CI com secrets), o APK sai
-// assinado sempre com a mesma chave, e o Android aceita atualizar o app.
-// Sem elas, usa a chave de debug (instala, mas não atualiza por cima de
-// uma versão assinada com outra chave).
+// Assinatura: o Android só aceita instalar uma versão nova POR CIMA da
+// antiga se as duas tiverem a mesma chave. Por isso a chave é FIXA:
+//  - com os secrets PQ_KEYSTORE_* no GitHub, usa a chave guardada lá;
+//  - sem eles, usa android/app/plano-quadrante.jks, que está no repositório.
+// Antes, o build caía na chave de debug do runner, que muda a cada build,
+// e a atualização dava "conflito com o pacote existente".
 def ks = System.getenv('PQ_KEYSTORE_FILE')
 
 android {
@@ -21,12 +23,17 @@ android {
     }
 
     signingConfigs {
-        if (ks) {
-            release {
+        release {
+            if (ks) {
                 storeFile file(ks)
                 storePassword System.getenv('PQ_KEYSTORE_PASSWORD')
                 keyAlias System.getenv('PQ_KEY_ALIAS')
                 keyPassword System.getenv('PQ_KEY_PASSWORD')
+            } else {
+                storeFile file('plano-quadrante.jks')
+                storePassword 'planoquadrante'
+                keyAlias 'planoquadrante'
+                keyPassword 'planoquadrante'
             }
         }
     }
@@ -34,7 +41,12 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig ks ? signingConfigs.release : signingConfigs.debug
+            signingConfig signingConfigs.release
+        }
+        debug {
+            // Mesmo no Android Studio, a mesma chave: dá para alternar entre
+            // o APK do GitHub e o instalado pelo cabo sem desinstalar.
+            signingConfig signingConfigs.release
         }
     }
 

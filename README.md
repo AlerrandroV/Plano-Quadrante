@@ -203,28 +203,25 @@ branco e preto). O tabuleiro continua preto e branco.
   cada mudança em `web/` ou `android/` na `main`. O botão do site aponta
   sempre para a mais recente.
 
-### Chave de assinatura (recomendado)
+### Chave de assinatura
 
-Sem uma chave fixa, cada APK sai assinado com uma chave diferente e o Android
-**não deixa atualizar** por cima da versão anterior (é preciso desinstalar
-antes). Para resolver, gere uma chave uma única vez:
+O Android só instala uma versão nova **por cima** da antiga se as duas
+tiverem a mesma chave. Por isso o APK é sempre assinado com a chave fixa
+`android/app/plano-quadrante.jks`, que está no repositório.
 
-```bash
-keytool -genkeypair -v -keystore pq.jks -alias planoquadrante \
-  -keyalg RSA -keysize 2048 -validity 10000
-base64 -w0 pq.jks   # copie a saída
-```
+> Até a v0.1.9, cada build saía com uma chave diferente e a atualização dava
+> "conflito com o pacote existente". **Desinstale a versão antiga uma vez**;
+> daí em diante, as atualizações instalam por cima.
 
-E crie em *Settings → Secrets and variables → Actions*:
-
-| Secret | Valor |
-|---|---|
-| `PQ_KEYSTORE_BASE64` | a saída do `base64` |
-| `PQ_KEYSTORE_PASSWORD` | a senha do keystore |
-| `PQ_KEY_ALIAS` | `planoquadrante` |
-| `PQ_KEY_PASSWORD` | a senha da chave |
-
-Guarde o `pq.jks` em lugar seguro e **nunca** o coloque no repositório.
+Como a chave está no repositório público, qualquer pessoa poderia assinar um
+APK que o celular aceitaria como atualização. Para um projeto escolar isso
+basta, desde que você só instale o APK das Releases deste repositório. Se
+quiser uma chave secreta, gere uma (`keytool -genkeypair -keystore pq.jks
+-alias planoquadrante -keyalg RSA -keysize 2048 -validity 10000`) e
+cadastre em *Settings → Secrets and variables → Actions* os secrets
+`PQ_KEYSTORE_BASE64` (saída de `base64 -w0 pq.jks`), `PQ_KEYSTORE_PASSWORD`,
+`PQ_KEY_ALIAS` e `PQ_KEY_PASSWORD`. Trocar de chave exige desinstalar uma
+última vez.
 
 ## Limitações conhecidas
 
