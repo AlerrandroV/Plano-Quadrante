@@ -34,7 +34,7 @@ export function startPlayer(root) {
 
   function join(name) {
     const statusEl = h('span', { class: 'status connecting' }, '● Conectando…');
-    const area = h('div');
+    const area = h('div', { class: 'stage' });
     let last = null;
 
     const relay = connectRelay({

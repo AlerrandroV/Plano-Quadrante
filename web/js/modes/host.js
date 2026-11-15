@@ -9,12 +9,13 @@ import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
 const HOST_ID = 'host';
 const SAVE_KEY = 'pq-host-save';
 
-export function startHost(root, env) {
+export function startHost(root, env, { onExit = null } = {}) {
   let info = env.server;
   let hostName = store.get('pq-name', 'Anfitrião');
   const clients = new Map(); // id -> { name, online }
   let state = null;          // estado do jogo (null = no lobby)
   const statusEl = h('span', { class: 'status' });
+  let exited = false;
 
   restore();
 
@@ -130,6 +131,7 @@ export function startHost(root, env) {
   }
 
   function draw() {
+    if (exited) return;
     if (state) drawGame();
     else drawLobby();
   }
@@ -145,12 +147,13 @@ export function startHost(root, env) {
     const canStart = players.length >= game.meta.minPlayers;
 
     mount(root,
+      onExit ? h('div', { class: 'toolbar' }, h('button', { class: 'btn ghost', onclick: exitRoom }, '< Menu')) : null,
+      h('div', { class: 'lobby' },
       h('section', { class: 'card' },
         h('div', { class: 'card-head' }, h('h2', {}, 'Sua sala'), statusEl),
         urls.length
           ? [
-            h('p', {}, 'Os amigos devem estar ', h('strong', {}, 'no mesmo Wi-Fi'),
-              ' (ou no seu hotspot) e ler o QR code, ou digitar o endereço no navegador:'),
+            h('p', { class: 'center' }, 'Amigos no ', h('strong', {}, 'mesmo Wi-Fi'), ' ou no seu hotspot:'),
             qr(urls[0]),
             h('p', { class: 'address' }, urls[0]),
             urls.length > 1 ? h('details', {}, h('summary', {}, 'Outros endereços'), h('ul', {}, urls.slice(1).map((u) => h('li', {}, u)))) : null,
@@ -162,8 +165,15 @@ export function startHost(root, env) {
         h('h3', {}, `Jogadores (${players.length})`),
         h('ul', { class: 'player-list' }, players.map((p) => h('li', {}, p.name, p.host ? h('span', { class: 'tag' }, 'você') : null))),
         players.length > game.meta.maxPlayers ? h('p', { class: 'warn' }, `Máximo de ${game.meta.maxPlayers} jogadores; os últimos a entrar vão assistir.`) : null,
-        !canStart ? h('p', { class: 'muted' }, `Aguardando jogadores (mínimo ${game.meta.minPlayers}).`) : null,
-        h('button', { class: 'btn wide', disabled: !canStart, onclick: startGame }, 'Começar partida')));
+        !canStart ? h('p', { class: 'muted hint' }, `Aguardando jogadores (mínimo ${game.meta.minPlayers}).`) : null,
+        h('button', { class: 'btn wide', disabled: !canStart, onclick: startGame }, 'Começar partida'))));
+  }
+
+  function exitRoom() {
+    if (clients.size && !confirm('Fechar a sala? Os jogadores conectados vão sair.')) return;
+    exited = true;
+    relay.close();
+    onExit();
   }
 
   function drawGame() {

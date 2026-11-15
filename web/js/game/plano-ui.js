@@ -77,27 +77,42 @@ export function render(root, state, ctx) {
 
   const controls = controlsPanel(state, ctx, { myTurn, rolling });
   const boardWrap = h('div', { class: 'pq-board-wrap' }, board.canvas);
-  board.observe(boardWrap, ctx.shared);
 
-  let layout;
+  // Grade fixa do tamanho da tela: lado A | tabuleiro | lado B (+ registro).
+  // Os dois lados têm sempre o mesmo tamanho, para a tela ficar simétrica.
+  const sideA = [];
+  const sideB = [];
   if (ctx.shared) {
-    const seat = (colors) => colors
-      .map((c) => state.players.findIndex((p) => p.color === c))
-      .filter((i) => i >= 0)
-      .map((i) => playerPanel(state, i, { controls: i === state.current ? controls : null, shared: true }));
-    layout = h('div', { class: 'pq shared' },
-      h('div', { class: 'pq-row top' }, seat(TOP_SEATS)),
-      boardWrap,
-      h('div', { class: 'pq-row bottom' }, seat(BOTTOM_SEATS)),
-      logBar(state));
+    const seat = (colors, list, flipped) => {
+      for (const c of colors) {
+        const i = state.players.findIndex((p) => p.color === c);
+        if (i >= 0) list.push(playerPanel(state, i, { controls: i === state.current ? controls : null, flipped }));
+      }
+    };
+    seat(TOP_SEATS, sideA, true);
+    seat(BOTTOM_SEATS, sideB, false);
   } else {
-    layout = h('div', { class: 'pq personal' },
-      h('div', { class: 'pq-row players' }, state.players.map((_, i) => playerPanel(state, i, { me: i === meIdx }))),
-      boardWrap,
-      h('section', { class: `pq-panel controls-only team-${(meIdx >= 0 ? state.players[meIdx] : current).color}` }, controls),
-      logBar(state));
+    state.players.forEach((_, i) => { if (i !== meIdx) sideA.push(playerPanel(state, i)); });
+    sideB.push(meIdx >= 0
+      ? playerPanel(state, meIdx, { controls, me: true })
+      : h('section', { class: 'pq-panel has-controls spectator' }, controls));
   }
+
+  // Quem divide o lado com o painel da vez fica "recolhido" (só ícone e números),
+  // como no protótipo, para sobrar espaço para os dados e os botões.
+  for (const side of [sideA, sideB]) {
+    if (side.length > 1 && side.some((el) => el.classList.contains('has-controls'))) {
+      for (const el of side) if (!el.classList.contains('has-controls')) el.classList.add('rested');
+    }
+  }
+
+  const layout = h('div', { class: `pq ${ctx.shared ? 'shared' : 'personal'}` },
+    h('div', { class: 'pq-side a' }, sideA),
+    boardWrap,
+    h('div', { class: 'pq-side b' }, sideB),
+    logBar(state));
   root.replaceChildren(layout);
+  board.fit(layout);
 }
 
 function rerender() {
@@ -163,29 +178,30 @@ function onBoardTap(state, ctx, x, y, myTurn) {
 }
 
 // ================================================================ painéis
-function playerPanel(state, i, { controls = null, shared = false, me = false } = {}) {
+function playerPanel(state, i, { controls = null, flipped = false, me = false } = {}) {
   const p = state.players[i];
   const onBoard = state.pieces.filter((q) => q.owner === i).length;
   const isTurn = i === state.current && state.phase !== 'over';
   const tags = [];
   if (p.eliminated) tags.push(h('span', { class: 'pq-tag out' }, 'FORA'));
-  else if (p.skip > 0) tags.push(h('span', { class: 'pq-tag' }, 'BLOQUEADO'));
+  else if (p.skip > 0) tags.push(h('span', { class: 'pq-tag' }, 'BLOQ.'));
   if (state.winner === i) tags.push(h('span', { class: 'pq-tag win' }, 'VENCEU'));
 
   return h('section', {
     class: ['pq-panel', `team-${p.color}`, isTurn ? 'is-turn' : '', p.eliminated ? 'is-out' : '',
-      controls ? 'has-controls' : '', shared && TOP_SEATS.includes(p.color) ? 'flipped' : ''].join(' '),
+      controls ? 'has-controls' : '', flipped ? 'flipped' : ''].join(' '),
   },
   h('header', { class: 'pq-panel-head' },
-    isTurn ? h('span', { class: 'pq-arrow', 'aria-hidden': 'true' }, '▶') : null,
-    pawnIcon(p.color),
-    h('span', { class: 'pq-name' }, p.name),
-    me ? h('span', { class: 'pq-tag me' }, 'VOCÊ') : null,
-    ...tags),
-  h('div', { class: 'pq-stats' },
-    stat('reserva', 'Na reserva', p.reserve),
-    stat('board', 'No tabuleiro', onBoard),
-    stat('cativeiro', 'Inimigos capturados (meta)', `${p.captives.length}/${G.captiveTarget(state)}`)),
+    h('span', { class: 'pq-who' },
+      isTurn ? h('span', { class: 'pq-arrow', 'aria-hidden': 'true' }, '▶') : null,
+      pawnIcon(p.color),
+      h('span', { class: 'pq-name' }, p.name),
+      me ? h('span', { class: 'pq-tag me' }, 'VOCÊ') : null,
+      ...tags),
+    h('span', { class: 'pq-stats' },
+      stat('reserva', 'Na reserva', p.reserve),
+      stat('board', 'No tabuleiro', onBoard),
+      stat('cativeiro', 'Inimigos capturados (meta)', `${p.captives.length}/${G.captiveTarget(state)}`))),
   controls);
 }
 
@@ -260,7 +276,7 @@ function controlsPanel(state, ctx, { myTurn, rolling }) {
     switch (state.phase) {
       case 'roll':
         title = 'Sua vez!';
-        body = 'Toque nos dados para rolar.';
+        body = 'Toque nos dados.';
         buttons.push(btn('Rolar dados', () => send({ type: 'roll' }), 'primary blink'));
         break;
       case 'card': {
@@ -299,19 +315,18 @@ function controlsPanel(state, ctx, { myTurn, rolling }) {
           buttons.push(btn('Cancelar', () => { ui.selected = null; rerender(); }));
         } else {
           const mustCapture = legal[0].capture;
-          title = mustCapture ? 'Captura obrigatória!' : 'Escolha a jogada';
+          title = mustCapture ? 'Captura obrigatória!' : 'Sua jogada';
           const canPlace = legal.some((a) => a.type === 'place');
           const canMove = legal.some((a) => a.type === 'move');
-          body = [canPlace ? 'Toque numa casa marcada para colocar uma peça' : null,
-            canMove ? 'toque numa peça sua para movê-la' : null].filter(Boolean).join(', ou ') + '.';
-          body = body[0].toUpperCase() + body.slice(1);
+          body = canPlace && canMove ? 'Coloque numa casa marcada ou mova uma peça com seta.'
+            : canPlace ? 'Coloque numa casa marcada.' : 'Mova uma peça com seta.';
         }
         break;
       }
       case 'bonus': {
         const piece = state.pieces.find((p) => p.id === state.bonus.pieceId);
         title = `Bônus nível ${piece?.level ?? ''}`;
-        body = `Avance até ${piece?.level} casa(s) em linha reta, em qualquer direção.`;
+        body = `Até ${piece?.level} casa(s) a mais, em linha reta.`;
         buttons.push(btn('Pular bônus', () => send({ type: 'bonus', skip: true })));
         break;
       }
@@ -319,12 +334,12 @@ function controlsPanel(state, ctx, { myTurn, rolling }) {
     }
   }
 
-  return h('div', { class: 'pq-controls' },
+  return h('div', { class: 'pq-controls' }, h('div', { class: 'pq-ctl-inner' },
     dice,
     h('div', { class: 'pq-message' },
       title ? h('strong', { class: 'pq-title' }, title) : null,
       body == null ? null : typeof body === 'string' ? h('p', {}, body) : body,
-      buttons.length ? h('div', { class: 'pq-buttons' }, buttons) : null));
+      buttons.length ? h('div', { class: 'pq-buttons' }, buttons) : null)));
 }
 
 function phaseHint(state) {
@@ -418,8 +433,9 @@ function randomFace() {
 
 // =================================================================== log
 function logBar(state) {
+  const last = state.log[state.log.length - 1] || '';
   return h('div', { class: 'pq-log' },
-    h('ul', {}, state.log.slice(-3).map((l, i, arr) => h('li', { class: i === arr.length - 1 ? 'new' : '' }, l))),
+    h('p', { class: 'pq-log-line', title: state.log.slice(-4).join('\n') }, last),
     h('button', { class: 'px-btn small', onclick: openRules, 'aria-label': 'Regras do jogo' }, '?'));
 }
 
@@ -479,25 +495,42 @@ class Board {
     return !!this.anim;
   }
 
-  observe(wrap, shared) {
-    // Escala inteira (ou meia) para os pixels ficarem nítidos.
-    const fit = () => {
-      if (!wrap.isConnected) return;
-      const maxH = window.innerHeight * (shared ? 0.52 : 0.6);
-      const avail = Math.min(wrap.clientWidth, maxH);
-      let s = avail / BW;
-      s = s >= 3 ? Math.floor(s) : Math.max(1, Math.floor(s * 2) / 2);
-      this.canvas.style.width = `${BW * s}px`;
-      this.canvas.style.height = `${BW * s}px`;
+  /**
+   * Calcula o tamanho do tabuleiro para a partida caber inteira na tela:
+   * em pé, o que sobra da altura vai igualmente para os dois lados;
+   * deitado, o que sobra da largura vira duas colunas iguais.
+   */
+  fit(pq) {
+    const run = () => {
+      if (!pq.isConnected) return;
+      const W = pq.clientWidth;
+      const H = pq.clientHeight;
+      const log = pq.querySelector('.pq-log');
+      const gap = 8;
+      const logH = log ? log.offsetHeight + gap : 0;
+      const landscape = W > H * 1.15;
+      pq.classList.toggle('landscape', landscape);
+      // Espaço mínimo de cada lado (painéis), proporcional à tela.
+      const sideMin = landscape
+        ? Math.max(170, Math.min(240, W * 0.22))
+        : Math.max(150, Math.min(180, H * 0.24));
+      let S = landscape
+        ? Math.min(H - logH, W - 2 * (sideMin + gap))
+        : Math.min(W, H - logH - 2 * (sideMin + gap));
+      S = Math.max(110, S);
+      let k = S / BW;
+      // Escala inteira/meia mantém os pixels nítidos; em telas pequenas,
+      // vale mais o tabuleiro grande do que a escala exata.
+      k = k >= 3 ? Math.floor(k * 2) / 2 : k >= 1 ? Math.floor(k * 4) / 4 : k;
+      const size = Math.floor(BW * k);
+      pq.style.setProperty('--board', `${size}px`);
+      this.canvas.style.width = `${size}px`;
+      this.canvas.style.height = `${size}px`;
     };
+    run();
     this.ro?.disconnect();
-    this.ro = new ResizeObserver(fit);
-    this.ro.observe(wrap);
-    // A altura disponível muda ao entrar/sair da tela cheia ou girar o aparelho.
-    if (this.onResize) window.removeEventListener('resize', this.onResize);
-    this.onResize = fit;
-    window.addEventListener('resize', fit);
-    requestAnimationFrame(fit);
+    this.ro = new ResizeObserver(run);
+    this.ro.observe(pq);
   }
 
   tap(e) {

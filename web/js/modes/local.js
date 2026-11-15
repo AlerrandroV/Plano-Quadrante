@@ -1,6 +1,6 @@
-// MODO MESMA TELA (GitHub Pages / site estático).
-// Todos jogam no mesmo aparelho, em volta da mesa. Oferece o APK para
-// quem quiser jogar cada um no seu celular.
+// MODO MESMA TELA (GitHub Pages / site estático, ou pelo menu do app).
+// Todos jogam no mesmo aparelho, em volta da mesa. No site, oferece o APK
+// para quem quiser jogar cada um no seu celular.
 import { game } from '../game/index.js';
 import { h, mount, randomId, store } from '../ui/dom.js';
 import { apkDownloadUrl } from '../env.js';
@@ -9,7 +9,7 @@ import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
 const COLOR_LABEL = { azul: 'Azul', vermelho: 'Vermelho', verde: 'Verde', laranja: 'Laranja' };
 const SEAT_HINT = { azul: 'em cima', vermelho: 'em cima', verde: 'embaixo', laranja: 'embaixo' };
 
-export function startLocal(root) {
+export function startLocal(root, { inApp = false, onExit = null } = {}) {
   let count = Number(store.get('pq-local-count', '2'));
   if (![2, 3, 4].includes(count)) count = 2;
   const names = loadNames();
@@ -27,17 +27,21 @@ export function startLocal(root) {
       h('span', { class: 'sr-only' }, `jogador ${i + 1}`)));
 
     mount(root,
+      onExit ? h('div', { class: 'toolbar' }, h('button', { class: 'px-btn small', onclick: onExit }, '< Menu')) : null,
+      h('div', { class: 'setup' },
       h('section', { class: 'card' },
         h('h2', {}, 'Mesma tela'),
-        h('p', { class: 'muted' }, 'Coloque o aparelho no meio da mesa. Os painéis de cima ficam virados para quem senta do outro lado.'),
+        h('p', { class: 'muted' }, 'Aparelho no meio da mesa: os painéis de cima ficam virados para quem senta do outro lado.'),
         h('div', { class: 'seg', role: 'group', 'aria-label': 'Número de jogadores' },
+          h('span', { class: 'seg-label', 'aria-hidden': 'true' }, 'Jogadores'),
           [2, 3, 4].map((n) => h('button', {
             class: 'px-btn' + (n === count ? ' primary' : ''), 'aria-pressed': n === count ? 'true' : 'false',
             onclick: () => { count = n; store.set('pq-local-count', String(n)); setupScreen(); },
-          }, `${n} jogadores`))),
+            'aria-label': `${n} jogadores`,
+          }, String(n)))),
         h('div', { class: 'seats' }, inputs),
         h('button', { class: 'px-btn primary wide', onclick: start }, 'Começar')),
-      apkBanner());
+      inApp ? null : apkBanner()));
   }
 
   function start() {
@@ -80,13 +84,9 @@ function loadNames() {
 function apkBanner() {
   const { apk, releases } = apkDownloadUrl();
   return h('aside', { class: 'card apk-banner' },
-    h('h2', {}, 'Cada um no seu celular?'),
     h('p', {},
-      'Baixe o app Android. Só quem cria a sala precisa do app; os amigos ',
-      h('strong', {}, 'só abrem o navegador'),
-      ' (Android ou iPhone) no mesmo Wi-Fi, ou no hotspot de quem criou a sala, e leem o QR code.'),
-    h('a', { class: 'px-btn primary wide', href: apk, download: '' }, 'Baixar o app (APK)'),
-    h('p', { class: 'small muted' },
-      'Ao instalar, o Android pode pedir para permitir "fontes desconhecidas". ',
-      h('a', { href: releases, target: '_blank', rel: 'noopener' }, 'Ver versões'), '.'));
+      h('strong', { class: 'gold' }, 'Cada um no seu celular? '),
+      'Só quem cria a sala instala o app; os amigos entram pelo navegador, no mesmo Wi-Fi. ',
+      h('a', { href: releases, target: '_blank', rel: 'noopener' }, 'Versões')),
+    h('a', { class: 'px-btn primary', href: apk, download: '' }, 'Baixar app'));
 }
