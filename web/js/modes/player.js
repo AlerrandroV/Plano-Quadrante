@@ -1,9 +1,12 @@
 // MODO JOGADOR: navegador de um amigo que abriu o endereço da sala.
-// Não precisa instalar nada. Só mostra o que o host manda e envia jogadas.
-import { game } from '../game/index.js';
+// Não precisa instalar nada. Mostra o que o mestre da sala manda (sala de
+// espera ou partida) e envia jogadas. Quem não está na partida assiste.
 import { connectRelay } from '../net/relay-client.js';
 import { h, mount, randomId, store } from '../ui/dom.js';
 import { fullscreenButton } from '../ui/fullscreen.js';
+import { getGame, capacityText } from '../games/index.js';
+import { colorPicker, gameArt, scoreboard, openScoreboard, pawnBadge } from '../ui/platform.js';
+import { isColor } from '../ui/colors.js';
 
 export function startPlayer(root) {
   // O id fica salvo: se a tela apagar ou a página recarregar,
@@ -36,17 +39,21 @@ export function startPlayer(root) {
     const statusEl = h('span', { class: 'status connecting' }, '● Conectando…');
     const area = h('div', { class: 'stage' });
     let last = null;
+    let scores = [];
+    const wantColor = () => (isColor(store.get('pq-color')) ? store.get('pq-color') : null);
+    const hello = () => relay.send({ type: 'hello', name: store.get('pq-name', name), color: wantColor() });
 
     const relay = connectRelay({
       role: 'player', id, name,
       onStatus(s) {
         statusEl.className = 'status ' + s;
         statusEl.textContent = s === 'open' ? '● Conectado' : s === 'reconnecting' ? '● Reconectando…' : '● Conectando…';
+        if (s === 'open') hello(); // reenvia nome e cor a cada (re)conexão
       },
       onMessage(msg) {
         if (msg.type === '_host-offline') {
           mount(area, h('section', { class: 'card center' },
-            h('h2', {}, 'O criador da sala saiu'),
+            h('h2', {}, 'O mestre da sala saiu'),
             h('p', { class: 'muted' }, 'Aguardando ele voltar… Se não voltar, peça um novo QR code.')));
           return;
         }
@@ -54,6 +61,7 @@ export function startPlayer(root) {
           mount(area, h('section', { class: 'card center' }, h('h2', {}, 'Sala cheia')));
           return;
         }
+        if (msg.scores) scores = msg.scores;
         last = msg;
         draw();
       },
@@ -61,20 +69,45 @@ export function startPlayer(root) {
 
     function draw() {
       if (!last) return;
-      if (last.type === 'lobby') {
-        mount(area, h('section', { class: 'card' },
+      if (last.type === 'lobby') drawLobby(last);
+      else if (last.type === 'state') drawGame(last);
+    }
+
+    function drawLobby(msg) {
+      const game = getGame(msg.gameId);
+      const me = msg.members.find((m) => m.id === msg.you);
+      const taken = msg.members.filter((m) => m.id !== msg.you).map((m) => m.color);
+      mount(area,
+        h('section', { class: 'card' },
           h('h2', {}, 'Na sala!'),
-          h('p', { class: 'muted' }, 'Esperando o criador da sala começar a partida…'),
-          h('ul', { class: 'player-list' }, last.players.map((p) =>
-            h('li', {}, p.name, p.id === id ? h('span', { class: 'tag' }, 'você') : null, p.host ? h('span', { class: 'tag' }, 'sala') : null)))));
-      } else if (last.type === 'state') {
-        const g = h('section', { class: 'game' });
-        mount(area, g);
-        game.render(g, last.view, {
-          me: last.you, shared: false,
-          send: (action) => relay.send({ type: 'action', action }),
-        });
-      }
+          game ? h('div', { class: 'setup-head' }, gameArt(game, 'game-art small'),
+            h('div', {}, h('strong', { class: 'gold' }, game.name), h('p', { class: 'muted' }, capacityText(game)))) : null,
+          h('p', { class: 'muted' }, me?.role === 'play'
+            ? 'Você vai jogar. Esperando o mestre da sala começar…'
+            : 'Você vai assistir. O mestre da sala decide quem joga.'),
+          h('span', { class: 'seat-color' }, 'Cor das suas peças'),
+          colorPicker({
+            value: me?.color, taken,
+            onPick: (c) => { store.set('pq-color', c); hello(); },
+          }),
+          h('ul', { class: 'member-list' }, msg.members.map((m) => h('li', { class: `team-${m.color}` },
+            pawnBadge(m.color),
+            h('span', { class: 'member-name' }, m.name,
+              m.id === msg.you ? h('span', { class: 'tag' }, 'você') : null,
+              m.host ? h('span', { class: 'tag' }, 'mestre') : null),
+            h('span', { class: 'role-tag ' + m.role }, m.role === 'play' ? 'Joga' : 'Assiste'))))),
+        scores.length ? scoreboard(scores) : null);
+    }
+
+    function drawGame(msg) {
+      const game = getGame(msg.gameId);
+      if (!game) return;
+      const g = h('section', { class: 'game' });
+      mount(area, g);
+      game.render(g, msg.view, {
+        me: msg.playing ? msg.you : null, shared: false,
+        send: (action) => relay.send({ type: 'action', action }),
+      });
     }
 
     mount(root,
@@ -84,10 +117,13 @@ export function startPlayer(root) {
           onclick: () => {
             const n = prompt('Seu nome:', store.get('pq-name', ''));
             const clean = n?.replace(/\s+/g, ' ').trim().slice(0, 20);
-            if (clean) { store.set('pq-name', clean); relay.send({ type: 'hello', name: clean }); }
+            if (clean) { store.set('pq-name', clean); hello(); }
           },
         }, 'Nome'),
-        h('span', { class: 'tools' }, statusEl, fullscreenButton())),
+        h('span', { class: 'tools' },
+          statusEl,
+          h('button', { class: 'px-btn small', onclick: () => openScoreboard(scores) }, 'Placar'),
+          fullscreenButton())),
       area);
   }
 }
