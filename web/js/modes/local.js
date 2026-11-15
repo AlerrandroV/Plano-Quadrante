@@ -4,6 +4,7 @@
 import { game } from '../game/index.js';
 import { h, mount, randomId, store } from '../ui/dom.js';
 import { apkDownloadUrl } from '../env.js';
+import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
 
 const COLOR_LABEL = { azul: 'Azul', vermelho: 'Vermelho', verde: 'Verde', laranja: 'Laranja' };
 const SEAT_HINT = { azul: 'em cima', vermelho: 'em cima', verde: 'embaixo', laranja: 'embaixo' };
@@ -14,6 +15,7 @@ export function startLocal(root) {
   const names = loadNames();
 
   function setupScreen() {
+    leaveFocus();
     const seats = game.seatsFor(count);
     const inputs = seats.map((color, i) => h('label', { class: `seat team-${color}` },
       h('span', { class: 'seat-color' }, `${COLOR_LABEL[color]} · ${SEAT_HINT[color]}`),
@@ -58,7 +60,8 @@ export function startLocal(root) {
 
     mount(root,
       h('div', { class: 'toolbar' },
-        h('button', { class: 'px-btn small', onclick: () => { if (confirm('Sair da partida?')) setupScreen(); } }, '< Sair')),
+        h('button', { class: 'px-btn small', onclick: () => { if (confirm('Sair da partida?')) setupScreen(); } }, '< Sair'),
+        fullscreenButton()),
       area);
     draw();
   }

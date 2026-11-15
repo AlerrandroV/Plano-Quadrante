@@ -150,6 +150,11 @@ input:focus-visible, button:focus-visible, a:focus-visible, [tabindex]:focus-vis
 .address { text-align: center; font-size: 26px; color: var(--gold); word-break: break-all; }
 
 .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.toolbar .tools { display: flex; align-items: center; gap: 6px; }
+
+/* Modo foco / tela cheia: só o que interessa na partida. */
+html.focus .topbar { display: none; }
+html.focus main { padding-top: calc(6px + env(safe-area-inset-top)); }
 .status { font: 9px var(--title); }
 .status.open { color: var(--verde-l); }
 .status.reconnecting, .status.connecting { color: var(--fog); animation: blink 1s steps(2) infinite; }

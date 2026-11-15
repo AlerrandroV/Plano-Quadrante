@@ -67,6 +67,10 @@ dizem coisas diferentes. Estas foram as escolhas (todas marcadas com
 Se a tela de alguém apagar ou a página recarregar, a pessoa volta para o mesmo
 lugar na partida.
 
+Durante a partida, o botão **Tela cheia** esconde o cabeçalho (e, onde o
+navegador permite, as barras do navegador). No app, as barras do Android
+ficam escondidas automaticamente; deslize da borda para vê-las.
+
 ## Como funciona por dentro
 
 ```
