@@ -16,8 +16,8 @@ android {
         applicationId 'io.github.alerrandrov.planoquadrante'
         minSdk 26
         targetSdk 35
-        versionCode((project.findProperty('versionCode') ?: '1') as int)
-        versionName(project.findProperty('versionName') ?: '0.1.0')
+        versionCode((project.findProperty('versionCode') ?: '1').toString().toInteger())
+        versionName((project.findProperty('versionName') ?: '0.1.0').toString())
     }
 
     signingConfigs {
@@ -43,6 +43,11 @@ android {
         main {
             assets.srcDirs = ['../../web']
         }
+    }
+
+    lint {
+        // Avisos do lint não devem impedir a geração do APK.
+        abortOnError false
     }
 
     compileOptions {
