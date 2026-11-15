@@ -1,0 +1,15 @@
+{
+  "name": "plano-quadrante",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jogo Plano Quadrante: mesma tela no GitHub Pages, ou sala local via Wi-Fi pelo app Android.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/dev-server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}
