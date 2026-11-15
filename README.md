@@ -7,7 +7,7 @@ sozinho** em qual está:
 | Onde abre | Modo | Como se joga |
 |---|---|---|
 | GitHub Pages (`*.github.io`) | **Mesma tela** | Todos no mesmo aparelho, passando a vez. O site oferece o APK para quem quiser jogar cada um no seu celular. |
-| App Android (APK) | **Criador da sala** | O app abre um servidor no celular e mostra um QR code. |
+| App Android (APK) | **Menu**: Mesma tela ou Sala Wi-Fi | Na sala, o app abre um servidor no celular e mostra um QR code. |
 | Navegador de um amigo, pelo QR code | **Jogador** | Basta estar no mesmo Wi-Fi (ou no hotspot de quem criou a sala). Funciona em Android e iPhone, sem instalar nada. |
 
 ## Regras
@@ -70,6 +70,12 @@ lugar na partida.
 Durante a partida, o botão **Tela cheia** esconde o cabeçalho (e, onde o
 navegador permite, as barras do navegador). No app, as barras do Android
 ficam escondidas automaticamente; deslize da borda para vê-las.
+
+**Tudo cabe em uma tela**, sem rolagem nem "puxar para atualizar". A partida
+é uma grade simétrica: em pé, *lado A / tabuleiro / lado B* (as duas faixas
+sempre do mesmo tamanho); deitado, as faixas viram colunas. O tabuleiro é
+calculado para o espaço que sobra, e o painel de quem está na vez se expande
+enquanto quem divide o lado com ele fica recolhido (só ícone e números).
 
 ## Como funciona por dentro
 
