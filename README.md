@@ -1,16 +1,29 @@
-# Plano Quadrante
+# Plano Quadrante · plataforma de jogos
 
-Jogo de tabuleiro 9×9 sobre o plano cartesiano, para 2 a 4 jogadores, com
-visual retrô pixelado. O mesmo código roda de três jeitos, e **descobre
-sozinho** em qual está:
+Plataforma de **jogos de tabuleiro e de cartas para jogar junto, sem
+internet**, com visual retrô pixelado. Começou com o *Plano Quadrante*, um
+jogo novo sobre o plano cartesiano, e agora reúne vários jogos com a mesma
+identidade visual.
+
+| Jogo | Jogadores | Espectadores |
+|---|---|---|
+| **Plano Quadrante** | 2 a 4 | sim |
+| **Damas** (regras brasileiras, 8×8) | 2 | sim |
+
+O mesmo código roda de três jeitos, e **descobre sozinho** em qual está:
 
 | Onde abre | Modo | Como se joga |
 |---|---|---|
-| GitHub Pages (`*.github.io`) | **Mesma tela** | Todos no mesmo aparelho, passando a vez. O site oferece o APK para quem quiser jogar cada um no seu celular. |
+| GitHub Pages (`*.github.io`) | **Mesma tela** | Catálogo → nomes e cores → todos no mesmo aparelho. O site oferece o APK para jogar cada um no seu celular. |
 | App Android (APK) | **Menu**: Mesma tela ou Sala Wi-Fi | Na sala, o app abre um servidor no celular e mostra um QR code. |
-| Navegador de um amigo, pelo QR code | **Jogador** | Basta estar no mesmo Wi-Fi (ou no hotspot de quem criou a sala). Funciona em Android e iPhone, sem instalar nada. |
+| Navegador de um amigo, pelo QR code | **Jogador** ou **espectador** | Basta estar no mesmo Wi-Fi (ou no hotspot de quem criou a sala). Funciona em Android e iPhone, sem instalar nada. |
 
-## Regras
+**Em todos os jogos:**
+- **Cor das peças:** cada jogador escolhe a sua entre 10 cores. Duas pessoas não podem ter a mesma.
+- **Mestre da sala:** escolhe o jogo de cada partida no catálogo e decide quem joga e quem assiste.
+- **Placar da sala:** mostra quem ganhou mais partidas. Na mesma tela, o placar da mesa soma as vitórias por nome.
+
+## Regras do Plano Quadrante
 
 Cada jogador tem 8 peões na reserva. O tabuleiro tem 81 interseções, de
 (-4, -4) a (4, 4), com o centro em (0, 0). A moldura tem cores fixas:
@@ -41,7 +54,7 @@ azul em cima, laranja à direita, verde embaixo e vermelho à esquerda.
 
 O PDF de regras, o `manual.html` e o protótipo (`script.js`) às vezes
 dizem coisas diferentes. Estas foram as escolhas (todas marcadas com
-`DECISÃO` em `web/js/game/plano.js`):
+`DECISÃO` em `web/js/games/plano-quadrante/rules.js`):
 
 | Ponto | Escolha | Por quê |
 |---|---|---|
@@ -62,7 +75,11 @@ dizem coisas diferentes. Estas foram as escolhas (todas marcadas com
    de internet.
 3. Abra o app. Os amigos leem o QR code com a câmera, ou digitam o endereço
    mostrado (ex.: `http://192.168.0.12:8080`) no navegador.
-4. Quando todos aparecerem na lista, toque em **Começar partida**.
+4. Na sala (abas *Convidar · Pessoas · Jogo · Placar*), o mestre escolhe o
+   jogo e toca em **Joga/Assiste** para decidir quem joga. Cada um escolhe a
+   cor das suas peças. Depois, **Começar**.
+5. Quem assiste vê a partida ao vivo. Quem chegar no meio entra assistindo.
+   Ao fim, a vitória vai para o **placar da sala**.
 
 Se a tela de alguém apagar ou a página recarregar, a pessoa volta para o mesmo
 lugar na partida.
@@ -80,7 +97,7 @@ enquanto quem divide o lado com ele fica recolhido (só ícone e números).
 ## Como funciona por dentro
 
 ```
-            ┌──────────── celular do criador da sala (APK) ────────────┐
+            ┌──────────── celular do mestre da sala (APK) ─────────────┐
             │  WebView (jogo, modo host)  ←ws→  LocalServer (Java)     │
             │  http://127.0.0.1:8080             • serve a pasta web/  │
             │  guarda o estado e valida jogadas  • /pq-info.json       │
@@ -95,7 +112,7 @@ enquanto quem divide o lado com ele fica recolhido (só ícone e números).
   tem. Se existe e a página foi aberta em `127.0.0.1`/`localhost`, este
   aparelho é o criador; se foi aberta por um IP da rede, é um jogador.
 - **O host manda no jogo:** o servidor só repassa mensagens. Toda a lógica
-  roda no JavaScript do criador da sala, que envia a cada jogador apenas o que
+  roda no JavaScript do mestre da sala, que envia a cada jogador apenas o que
   ele pode ver (`game.view`).
 - **Sem internet:** nada vem de CDN. A biblioteca do QR code fica em
   `web/vendor/`.
@@ -103,53 +120,79 @@ enquanto quem divide o lado com ele fica recolhido (só ícone e números).
 ## Estrutura
 
 ```
-web/                    o jogo (HTML/CSS/JS puro, sem build)
-  js/env.js             detecção do modo + link do APK
-  js/game/plano.js      ← regras do jogo
-  js/game/plano-ui.js   ← tabuleiro, painéis, dados e animações
-  js/game/pixel.js      ← paleta e sprites em pixel art
-  vendor/fonts/         fontes pixel (Press Start 2P, VT323; licença OFL)
-  js/modes/local.js     mesma tela (GitHub Pages)
-  js/modes/host.js      criador da sala: QR code, lobby, autoridade do jogo
-  js/modes/player.js    jogador no navegador
+web/                      a plataforma (HTML/CSS/JS puro, sem build)
+  js/env.js               detecção do modo + link do APK
+  js/games/index.js       ← CATÁLOGO: lista de jogos, ilustrações, capacidade
+  js/games/plano-quadrante/rules.js, ui.js
+  js/games/damas/rules.js, ui.js
+  js/ui/pixel.js          paleta, peões, pedras, dados (pixel art em canvas)
+  js/ui/table.js          "mesa" comum: grade simétrica, painéis, registro, ajuda
+  js/ui/platform.js       catálogo, seletor de cores, placar
+  js/ui/colors.js         as 10 cores e a regra de cores únicas
+  js/modes/menu.js        menu do app (Mesma tela / Sala Wi-Fi)
+  js/modes/local.js       mesma tela: catálogo → preparação → partida
+  js/modes/host.js        sala: QR, jogo, quem joga/assiste, placar, autoridade
+  js/modes/player.js      jogador/espectador no navegador
   js/net/relay-client.js  WebSocket com reconexão automática
-android/                app Android (WebView + servidor NanoHTTPD)
-server/dev-server.mjs   o mesmo servidor do app, em Node, para testar no PC
-test/                   testes da lógica do jogo
+  vendor/                 QR code e fontes pixel (licenças MIT e OFL)
+android/                  app Android (WebView + servidor NanoHTTPD)
+server/dev-server.mjs     o mesmo servidor do app, em Node, para testar no PC
+test/                     testes das regras de cada jogo
 ```
 
 ## Desenvolvimento
 
 ```bash
 npm install
-npm test          # testes das regras (inclui partidas aleatórias completas)
+npm test          # testes das regras de cada jogo (inclui partidas aleatórias completas)
 npm run dev       # sobe a sala no PC
 ```
 
-- `http://localhost:8080`: você é o criador da sala (igual ao app).
+- `http://localhost:8080`: você vê o menu do app (Mesma tela ou Sala Wi-Fi).
 - No celular, no mesmo Wi-Fi, abra o endereço que aparece no terminal: você é um jogador.
 - `http://localhost:8080/?modo=local`: modo mesma tela (igual ao GitHub Pages).
 
 O app Android abre no Android Studio pela pasta `android/`. A pasta `web/` é
 empacotada automaticamente dentro do APK.
 
-## Como o jogo se liga aos modos
+## Como adicionar um jogo
 
-As regras ficam em `web/js/game/plano.js` (funções puras, testadas em
-`test/plano.test.mjs`) e a tela em `web/js/game/plano-ui.js` +
-`pixel.js` (pixel art desenhada em canvas). O jogo segue este contrato:
+Cada jogo é uma pasta em `web/js/games/<id>/` com:
+
+- `rules.js`: regras como funções puras (fáceis de testar), seguindo o contrato abaixo;
+- `ui.js`: `render(root, view, ctx)` usando a mesa comum (`ui/table.js`) e a
+  pixel art (`ui/pixel.js`), para manter a identidade visual, e `RULES`, o
+  texto do botão "?".
 
 ```js
-meta                        // { id, name, minPlayers, maxPlayers }
-setup(players)              // estado inicial; players = [{ id, name }]
-act(state, playerId, action)// novo estado, ou null se a jogada é inválida
-view(state, playerId)       // o que esse jogador pode ver (esconda segredos aqui!)
-activePlayers(state)        // ids de quem pode jogar agora
-render(root, view, ctx)     // desenha; ctx = { me, send(action), shared }
+meta                         // { id, name, minPlayers, maxPlayers }
+defaultColors(n)             // cores padrão de cada assento
+setup(players)               // players = [{ id, name, color }] -> estado
+act(state, playerId, action) // novo estado, ou null se a jogada é inválida
+view(state, playerId)        // o que esse jogador vê (null = espectador); esconda segredos aqui!
+activePlayers(state)         // ids de quem joga agora
+outcome(state)               // null, ou { winners: [ids] } (vazio = empate) -> placar
 ```
 
-Os três modos (mesma tela, criador da sala e jogador) só conversam com o
-jogo por esse contrato, então mudar uma regra não exige mexer na rede.
+Depois é só registrar o jogo em `web/js/games/index.js`, com nome,
+ilustração (desenhada em código, 64×40) e a dica de cada assento. Os modos
+(mesma tela, sala, jogador, espectador), as cores e o placar passam a
+funcionar sem mexer na rede.
+
+## Damas: regras brasileiras
+
+Damas olímpicas no tabuleiro 8×8, casa a1 escura, 12 pedras de cada lado.
+
+- **Começo:** as brancas começam. Em "Jogar de novo", os lados se invertem.
+- **Pedra:** anda uma casa na diagonal para frente e captura para frente e para trás.
+- **Dama voadora:** anda e captura em qualquer distância e pode parar em qualquer casa livre depois da peça capturada.
+- **Captura obrigatória, pela lei da maioria:** vale o lance que captura mais peças, e pedra e dama valem o mesmo.
+- **Peças capturadas** só saem no fim do lance e não podem ser saltadas duas vezes.
+- **Promoção:** a pedra só vira dama se *terminar* o lance na última fileira.
+- **Fim de jogo:** perde quem fica sem peças ou sem lances. Há empate por acordo ou por 20 lances seguidos de cada lado só com damas, sem captura. Também dá para desistir.
+
+Para personalizar, cada jogador pode trocar a cor das pedras (o padrão é
+branco e preto). O tabuleiro continua preto e branco.
 
 ## Publicação (GitHub Actions)
 
@@ -185,7 +228,7 @@ Guarde o `pq.jks` em lugar seguro e **nunca** o coloque no repositório.
 
 ## Limitações conhecidas
 
-- O criador da sala precisa manter o app aberto. Se o Android fechar o app,
+- O mestre da sala precisa manter o app aberto. Se o Android fechar o app,
   a sala cai; ao reabrir, a partida em andamento é recuperada (até 30 min).
 - Algumas redes (Wi-Fi de escola, faculdade, hotel) isolam os aparelhos entre
   si. Nesse caso, use o hotspot do celular de quem criou a sala.

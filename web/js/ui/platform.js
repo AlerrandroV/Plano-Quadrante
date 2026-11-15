@@ -1,0 +1,114 @@
+// Peças da PLATAFORMA (iguais em todas as telas): catálogo de jogos,
+// seletor de cor das peças e placar da sala.
+import { h } from './dom.js';
+import { pixelCanvas, drawPawn, PAWN_W, PAWN_H } from './pixel.js';
+import { COLOR_ORDER, COLOR_LABEL } from './colors.js';
+import { GAMES, ART_W, ART_H, capacityText } from '../games/index.js';
+import { statIcon } from './table.js';
+
+export function gameArt(game, cls = 'game-art') {
+  const c = pixelCanvas(ART_W, ART_H, cls);
+  game.art(c.getContext('2d'));
+  return c;
+}
+
+/** Cartão de um jogo (ilustração, nome, capacidade). */
+export function gameCard(game, { selected = false, onPick = null, note = '' } = {}) {
+  const tag = onPick ? 'button' : 'div';
+  return h(tag, {
+    class: 'game-card' + (selected ? ' selected' : ''),
+    onclick: onPick ? () => onPick(game) : null,
+    'aria-pressed': onPick ? String(selected) : null,
+    'aria-label': onPick ? `${game.name}, ${capacityText(game)}` : null,
+  },
+  gameArt(game),
+  h('span', { class: 'game-name' }, game.name),
+  h('span', { class: 'game-cap' }, capacityText(game)),
+  note ? h('span', { class: 'game-note' }, note) : null);
+}
+
+/** Grade com todos os jogos do catálogo. */
+export function catalog({ selectedId = null, onPick, notes = {} }) {
+  return h('div', { class: 'catalog' },
+    GAMES.map((g) => gameCard(g, { selected: g.id === selectedId, onPick, note: notes[g.id] || '' })));
+}
+
+/** Botões de cor; cores de outros jogadores ficam bloqueadas. */
+export function colorPicker({ value, taken = [], onPick, label = 'Cor das peças' }) {
+  return h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': label },
+    COLOR_ORDER.map((c) => {
+      const busy = taken.includes(c) && c !== value;
+      const icon = pixelCanvas(PAWN_W, PAWN_H, 'swatch-pawn');
+      drawPawn(icon.getContext('2d'), 0, 0, c, { ghost: busy });
+      return h('button', {
+        class: `swatch team-${c}` + (c === value ? ' on' : ''),
+        role: 'radio', 'aria-checked': String(c === value),
+        'aria-label': COLOR_LABEL[c] + (busy ? ' (já escolhida)' : ''),
+        title: COLOR_LABEL[c],
+        disabled: busy,
+        onclick: () => onPick(c),
+      }, icon);
+    }));
+}
+
+/** Botão compacto com o peão na cor atual; abre a paleta numa janelinha. */
+export function colorButton({ value, taken = [], onPick, label = 'Cor das peças' }) {
+  const open = () => {
+    document.getElementById('pq-colors')?.remove();
+    const dlg = h('dialog', { id: 'pq-colors', class: 'pq-dialog' },
+      h('h2', {}, label),
+      colorPicker({ value, taken, label, onPick: (c) => { dlg.close(); dlg.remove(); onPick(c); } }),
+      h('form', { method: 'dialog' }, h('button', { class: 'px-btn' }, 'Fechar')));
+    document.body.append(dlg);
+    dlg.showModal();
+  };
+  return h('button', {
+    class: `color-btn team-${value}`, onclick: open, type: 'button',
+    'aria-label': `${label}: ${COLOR_LABEL[value]}. Tocar para trocar.`, title: 'Trocar cor',
+  }, pawnBadge(value));
+}
+
+export function pawnBadge(color) {
+  const c = pixelCanvas(PAWN_W, PAWN_H, 'pq-pawn-icon');
+  drawPawn(c.getContext('2d'), 0, 0, color);
+  return c;
+}
+
+/**
+ * Placar: quem ganhou mais partidas.
+ * scores: [{ id, name, color, wins, games }]
+ */
+export function scoreboard(scores, { title = 'Placar da sala', empty = 'Ninguém venceu ainda.' } = {}) {
+  const rows = [...scores].sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name));
+  const best = rows[0]?.wins || 0;
+  return h('section', { class: 'card scoreboard' },
+    h('h2', {}, title),
+    rows.length
+      ? h('ol', { class: 'score-list' }, rows.map((r) => h('li', { class: r.wins === best && best > 0 ? 'lead' : '' },
+        pawnBadge(r.color),
+        h('span', { class: 'score-name' }, r.name),
+        h('span', { class: 'score-wins', 'aria-label': `${r.wins} vitórias` }, statIcon('trofeu'), String(r.wins)))))
+      : h('p', { class: 'muted' }, empty));
+}
+
+/** Abre o placar numa janelinha (durante a partida). */
+export function openScoreboard(scores, opts) {
+  document.getElementById('pq-scores')?.remove();
+  const dlg = h('dialog', { id: 'pq-scores', class: 'pq-dialog' },
+    scoreboard(scores, opts),
+    h('form', { method: 'dialog' }, h('button', { class: 'px-btn primary' }, 'Fechar')));
+  document.body.append(dlg);
+  dlg.showModal();
+}
+
+/** Soma uma partida no placar (Map id -> {name,color,wins,games}). */
+export function recordResult(scores, players, winners) {
+  for (const p of players) {
+    const row = scores.get(p.id) || { id: p.id, name: p.name, color: p.color, wins: 0, games: 0 };
+    row.name = p.name;
+    row.color = p.color;
+    row.games += 1;
+    if (winners.includes(p.id)) row.wins += 1;
+    scores.set(p.id, row);
+  }
+}

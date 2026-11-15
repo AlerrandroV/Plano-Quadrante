@@ -1,45 +1,59 @@
-// MODO HOST (app Android, ou servidor de desenvolvimento no PC).
-// Este aparelho cria a sala, mostra o QR code e é a "autoridade" do jogo:
-// guarda o estado, valida as jogadas e envia a cada jogador o que ele pode ver.
-import { game } from '../game/index.js';
+// SALA (app Android, ou servidor de desenvolvimento no PC).
+// Este aparelho é o MESTRE DA SALA: mostra o QR code, escolhe o jogo,
+// decide quem joga e quem assiste, guarda o placar e é a "autoridade" da
+// partida (valida as jogadas e envia a cada um o que ele pode ver).
 import { connectRelay } from '../net/relay-client.js';
 import { h, mount, store } from '../ui/dom.js';
 import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
+import { GAMES, getGame } from '../games/index.js';
+import { catalog, colorButton, gameArt, scoreboard, openScoreboard, recordResult, pawnBadge } from '../ui/platform.js';
+import { firstFree, isColor } from '../ui/colors.js';
 
 const HOST_ID = 'host';
-const SAVE_KEY = 'pq-host-save';
+const SAVE_KEY = 'pq-room';
 
 export function startHost(root, env, { onExit = null } = {}) {
   let info = env.server;
-  let hostName = store.get('pq-name', 'Anfitrião');
-  const clients = new Map(); // id -> { name, online }
-  let state = null;          // estado do jogo (null = no lobby)
-  const statusEl = h('span', { class: 'status' });
+  const host = { id: HOST_ID, name: store.get('pq-name', 'Mestre'), color: store.get('pq-color', 'azul'), role: 'play', online: true, host: true };
+  const clients = new Map(); // id -> { id, name, color, role, online }
+  let gameId = store.get('pq-room-game', GAMES[0].id);
+  let match = null;          // { gameId, state, recorded }
+  const scores = new Map();  // id -> { id, name, color, wins, games }
+  let tab = 'convidar';
   let exited = false;
+  const statusEl = h('span', { class: 'status' });
 
   restore();
 
-  const relay = connectRelay({
-    role: 'host',
-    onStatus: (s) => setStatus(s),
-    onMessage: handleRelay,
-  });
+  const relay = connectRelay({ role: 'host', onStatus: setStatus, onMessage: handleRelay });
 
-  // ---------------- rede ----------------
+  // ------------------------------------------------------------ membros
+  const members = () => [host, ...clients.values()];
+  const online = () => members().filter((m) => m.online);
+  const game = () => getGame(gameId) || GAMES[0];
+  const takenBy = (id) => members().filter((m) => m.id !== id && m.online).map((m) => m.color);
+  const inMatch = (id) => !!match?.state.players.some((p) => p.id === id);
+
+  function defaultRole() {
+    const playing = online().filter((m) => m.role === 'play').length;
+    return !match && playing < game().meta.maxPlayers ? 'play' : 'watch';
+  }
+
+  // --------------------------------------------------------------- rede
   function handleRelay(msg) {
     switch (msg.t) {
       case 'clients':
         for (const c of clients.values()) c.online = false;
-        for (const c of msg.list) clients.set(c.id, { name: clean(c.name), online: true });
+        for (const c of msg.list) join(c.id, c.name);
         break;
       case 'join':
-        clients.set(msg.id, { name: clean(msg.name) || clients.get(msg.id)?.name || 'Jogador', online: true });
+        join(msg.id, msg.name);
         break;
       case 'leave': {
         const c = clients.get(msg.id);
         if (!c) return;
-        if (state && inGame(msg.id)) c.online = false;
-        else clients.delete(msg.id);
+        c.online = false;
+        if (!inMatch(msg.id) && !scores.has(msg.id)) clients.delete(msg.id);
         break;
       }
       case 'msg':
@@ -51,80 +65,125 @@ export function startHost(root, env, { onExit = null } = {}) {
     syncAll();
   }
 
+  function join(id, name) {
+    const known = clients.get(id);
+    if (known) { known.online = true; known.name = clean(name) || known.name; return; }
+    const c = { id, name: clean(name) || 'Jogador', color: null, role: defaultRole(), online: true };
+    c.color = firstFree(takenBy(id));
+    clients.set(id, c);
+  }
+
   function handlePlayer(id, data) {
     if (!data || typeof data !== 'object') return;
     const c = clients.get(id);
     if (!c) return;
-    if (data.type === 'hello' && typeof data.name === 'string') {
-      c.name = clean(data.name) || c.name;
-      if (state) state = renameInGame(state, id, c.name);
-    } else if (data.type === 'action' && state) {
+    if (data.type === 'hello') {
+      if (typeof data.name === 'string') c.name = clean(data.name) || c.name;
+      // Cor das peças: só se ninguém mais estiver com ela.
+      if (isColor(data.color) && !takenBy(id).includes(data.color)) c.color = data.color;
+      if (match && inMatch(id) && match.state.phase !== 'over') {
+        // Durante a partida, o nome muda, mas a cor fica a da partida.
+        match.state = { ...match.state, players: match.state.players.map((p) => (p.id === id ? { ...p, name: c.name } : p)) };
+      }
+    } else if (data.type === 'action' && match) {
       applyAction(id, data.action);
     }
   }
 
   function applyAction(playerId, action) {
-    const next = game.act(state, playerId, action);
+    const g = getGame(match.gameId);
+    const next = g.act(match.state, playerId, action);
     if (!next) return;
-    state = next;
+    match.state = next;
+    const result = g.outcome(next);
+    if (result && !match.recorded) {
+      recordResult(scores, next.players, result.winners);
+      match.recorded = true;
+    } else if (!result) {
+      match.recorded = false; // "jogar de novo" começou outra partida
+    }
     persist();
   }
 
+  function scoreList() {
+    return [...scores.values()];
+  }
+
   function syncAll() {
-    for (const id of clients.keys()) syncOne(id);
+    for (const c of clients.values()) syncOne(c.id);
+    persist();
     draw();
   }
 
   function syncOne(id) {
     if (!clients.get(id)?.online) return;
-    if (state) {
-      relay.send({ t: 'send', to: id, data: { type: 'state', you: id, view: game.view(state, inGame(id) ? id : null) } });
+    if (match) {
+      const g = getGame(match.gameId);
+      relay.send({ t: 'send', to: id, data: {
+        type: 'state', you: id, gameId: match.gameId, playing: inMatch(id),
+        view: g.view(match.state, inMatch(id) ? id : null), scores: scoreList(),
+      } });
     } else {
-      relay.send({ t: 'send', to: id, data: { type: 'lobby', you: id, players: lobbyPlayers() } });
+      relay.send({ t: 'send', to: id, data: {
+        type: 'lobby', you: id, gameId,
+        members: online().map(({ id: mid, name, color, role, host: isHost }) => ({ id: mid, name, color, role, host: !!isHost })),
+        scores: scoreList(),
+      } });
     }
   }
 
-  // ---------------- lógica da sala ----------------
-  function lobbyPlayers() {
-    return [{ id: HOST_ID, name: hostName, host: true },
-      ...[...clients].filter(([, c]) => c.online).map(([id, c]) => ({ id, name: c.name }))];
+  /** Troca o jogo; quem passar das vagas do novo jogo passa a assistir. */
+  function selectGame(id) {
+    gameId = id;
+    store.set('pq-room-game', gameId);
+    let seats = game().meta.maxPlayers;
+    for (const m of online()) {
+      if (m.role !== 'play') continue;
+      if (seats > 0) seats -= 1;
+      else m.role = 'watch';
+    }
   }
 
-  function inGame(id) {
-    return !!state?.players?.some((p) => p.id === id);
+  // ---------------------------------------------------------- partida
+  function lineup() {
+    return online().filter((m) => m.role === 'play').slice(0, game().meta.maxPlayers);
   }
 
-  function startGame() {
-    const players = lobbyPlayers().slice(0, game.meta.maxPlayers);
-    state = game.setup(players.map(({ id, name }) => ({ id, name })));
-    persist();
+  function startMatch() {
+    const g = game();
+    const players = lineup().map(({ id, name, color }) => ({ id, name, color }));
+    if (players.length < g.meta.minPlayers) return;
+    match = { gameId: g.id, state: g.setup(players), recorded: false };
     syncAll();
   }
 
   function backToLobby() {
-    if (!confirm('Encerrar a partida e voltar à sala?')) return;
-    state = null;
-    for (const [id, c] of clients) if (!c.online) clients.delete(id);
-    persist();
+    if (match && match.state.phase !== 'over' && !getGame(match.gameId).outcome(match.state)
+      && !confirm('Encerrar a partida e voltar à sala?')) return;
+    match = null;
+    for (const [id, c] of clients) if (!c.online && !scores.has(id)) clients.delete(id);
     syncAll();
   }
 
-  // Se a página do host recarregar (ex.: app voltou do segundo plano),
-  // recupera a partida em andamento.
+  // Se a página recarregar (ex.: app voltou do segundo plano), recupera tudo.
   function persist() {
-    store.set(SAVE_KEY, JSON.stringify({ at: Date.now(), state }));
+    store.set(SAVE_KEY, JSON.stringify({
+      at: Date.now(), gameId, match, scores: scoreList(),
+      clients: [...clients.values()].map(({ id, name, color, role }) => ({ id, name, color, role })),
+    }));
   }
   function restore() {
     try {
       const saved = JSON.parse(store.get(SAVE_KEY, 'null'));
-      if (saved && saved.state && Date.now() - saved.at < 30 * 60 * 1000) {
-        state = saved.state;
-        for (const p of state.players) if (p.id !== HOST_ID) clients.set(p.id, { name: p.name, online: false });
-      }
+      if (!saved || Date.now() - saved.at > 6 * 60 * 60 * 1000) return;
+      if (getGame(saved.gameId)) gameId = saved.gameId;
+      for (const r of saved.scores || []) scores.set(r.id, r);
+      for (const c of saved.clients || []) clients.set(c.id, { ...c, online: false });
+      if (saved.match && getGame(saved.match.gameId) && Date.now() - saved.at < 30 * 60 * 1000) match = saved.match;
     } catch { /* ignora */ }
   }
 
-  // ---------------- interface ----------------
+  // ------------------------------------------------------- interface
   function setStatus(s) {
     statusEl.textContent = s === 'open' ? '● Sala aberta' : s === 'reconnecting' ? '● Reconectando…' : '● Abrindo sala…';
     statusEl.className = 'status ' + s;
@@ -132,41 +191,76 @@ export function startHost(root, env, { onExit = null } = {}) {
 
   function draw() {
     if (exited) return;
-    if (state) drawGame();
+    if (match) drawGame();
     else drawLobby();
   }
 
   function drawLobby() {
     leaveFocus();
+    const g = game();
     const urls = info?.lanUrls ?? [];
-    const nameInput = h('input', {
-      type: 'text', maxLength: 20, value: hostName, 'aria-label': 'Seu nome',
-      onchange: (e) => { hostName = clean(e.target.value) || 'Anfitrião'; store.set('pq-name', hostName); syncAll(); },
-    });
-    const players = lobbyPlayers();
-    const canStart = players.length >= game.meta.minPlayers;
+    const playing = lineup();
+    const wanting = online().filter((m) => m.role === 'play').length;
+    const canStart = playing.length >= g.meta.minPlayers;
 
-    mount(root,
-      onExit ? h('div', { class: 'toolbar' }, h('button', { class: 'btn ghost', onclick: exitRoom }, '< Menu')) : null,
-      h('div', { class: 'lobby' },
-      h('section', { class: 'card' },
-        h('div', { class: 'card-head' }, h('h2', {}, 'Sua sala'), statusEl),
-        urls.length
-          ? [
-            h('p', { class: 'center' }, 'Amigos no ', h('strong', {}, 'mesmo Wi-Fi'), ' ou no seu hotspot:'),
-            qr(urls[0]),
+    const invite = h('section', { class: 'card', 'data-sec': 'convidar' },
+      h('h2', {}, 'Convidar'),
+      urls.length
+        ? h('div', { class: 'invite' },
+          qr(urls[0]),
+          h('div', { class: 'invite-text' },
+            h('p', {}, 'Amigos no ', h('strong', {}, 'mesmo Wi-Fi'), ' ou no seu hotspot leem o QR ou digitam:'),
             h('p', { class: 'address' }, urls[0]),
             urls.length > 1 ? h('details', {}, h('summary', {}, 'Outros endereços'), h('ul', {}, urls.slice(1).map((u) => h('li', {}, u)))) : null,
-          ]
-          : h('p', { class: 'warn' }, 'Nenhuma rede encontrada. Conecte-se a um Wi-Fi ou ligue o hotspot do celular e toque em "Atualizar endereço".'),
-        h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')),
-      h('section', { class: 'card' },
-        h('label', { class: 'field' }, h('span', {}, 'Seu nome'), nameInput),
-        h('h3', {}, `Jogadores (${players.length})`),
-        h('ul', { class: 'player-list' }, players.map((p) => h('li', {}, p.name, p.host ? h('span', { class: 'tag' }, 'você') : null))),
-        players.length > game.meta.maxPlayers ? h('p', { class: 'warn' }, `Máximo de ${game.meta.maxPlayers} jogadores; os últimos a entrar vão assistir.`) : null,
-        !canStart ? h('p', { class: 'muted hint' }, `Aguardando jogadores (mínimo ${game.meta.minPlayers}).`) : null,
-        h('button', { class: 'btn wide', disabled: !canStart, onclick: startGame }, 'Começar partida'))));
+            h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')))
+        : [h('p', { class: 'warn' }, 'Nenhuma rede encontrada. Conecte-se a um Wi-Fi ou ligue o hotspot e toque em "Atualizar".'),
+          h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')]);
+
+    const people = h('section', { class: 'card', 'data-sec': 'jogadores' },
+      h('h2', {}, 'Jogadores'),
+      h('div', { class: 'row' },
+        colorButton({ value: host.color, taken: takenBy(HOST_ID), onPick: (c) => { host.color = c; store.set('pq-color', c); syncAll(); } }),
+        h('input', {
+          type: 'text', maxLength: 20, value: host.name, 'aria-label': 'Seu nome',
+          onchange: (e) => { host.name = clean(e.target.value) || 'Mestre'; store.set('pq-name', host.name); syncAll(); },
+        })),
+      h('ul', { class: 'member-list' }, online().map((m) => h('li', { class: `team-${m.color}` },
+        pawnBadge(m.color),
+        h('span', { class: 'member-name' }, m.name, m.host ? h('span', { class: 'tag' }, 'mestre') : null),
+        h('button', {
+          class: 'px-btn small role ' + m.role,
+          onclick: () => { m.role = m.role === 'play' ? 'watch' : 'play'; syncAll(); },
+          'aria-label': `${m.name}: ${m.role === 'play' ? 'joga' : 'assiste'}. Tocar para trocar.`,
+        }, m.role === 'play' ? 'Joga' : 'Assiste')))),
+      h('p', { class: 'muted hint' }, 'Toque em Joga/Assiste para decidir quem joga. Quem assiste vê a partida ao vivo.'));
+
+    const pick = h('section', { class: 'card', 'data-sec': 'jogo' },
+      h('h2', {}, 'Jogo da vez'),
+      catalog({ selectedId: g.id, onPick: (x) => { selectGame(x.id); syncAll(); } }));
+
+    const board = h('div', { 'data-sec': 'placar' },
+      scoreboard(scoreList(), { title: 'Placar da sala' }));
+
+    const tabs = [['convidar', 'Convidar'], ['jogadores', `Pessoas ${online().length}`], ['jogo', 'Jogo'], ['placar', 'Placar']];
+    const status = !canStart
+      ? `${g.name}: ${g.meta.minPlayers - playing.length === 1 ? 'falta 1 jogador' : `faltam ${g.meta.minPlayers - playing.length} jogadores`}.`
+      : wanting > g.meta.maxPlayers
+        ? `${g.name}: só ${g.meta.maxPlayers} jogam; os outros assistem.`
+        : `${g.name} · ${playing.map((p) => p.name).join(' x ')}`;
+
+    mount(root,
+      h('div', { class: 'toolbar' },
+        onExit ? h('button', { class: 'btn ghost', onclick: exitRoom }, '< Menu') : h('span'),
+        statusEl),
+      h('nav', { class: 'tabs', 'aria-label': 'Seções da sala' }, tabs.map(([id, label]) => h('button', {
+        class: 'tab' + (tab === id ? ' on' : ''), 'aria-pressed': String(tab === id),
+        onclick: () => { tab = id; drawLobby(); },
+      }, label))),
+      h('div', { class: 'lobby room', 'data-tab': tab }, invite, people, pick, board),
+      h('div', { class: 'room-footer' },
+        gameArt(g, 'game-art tiny'),
+        h('p', { class: 'room-status' }, status),
+        h('button', { class: 'btn', disabled: !canStart, onclick: startMatch }, 'Começar')));
   }
 
   function exitRoom() {
@@ -177,17 +271,23 @@ export function startHost(root, env, { onExit = null } = {}) {
   }
 
   function drawGame() {
+    const g = getGame(match.gameId);
     const area = h('section', { class: 'game' });
-    const offline = state.players.filter((p) => p.id !== HOST_ID && !clients.get(p.id)?.online);
+    const offline = match.state.players.filter((p) => p.id !== HOST_ID && !clients.get(p.id)?.online);
+    const watching = online().filter((m) => !inMatch(m.id)).length;
     mount(root,
       h('div', { class: 'toolbar' },
         h('button', { class: 'btn ghost', onclick: backToLobby }, '< Sala'),
-        h('span', { class: 'tools' }, statusEl, fullscreenButton())),
+        h('span', { class: 'tools' },
+          watching ? h('span', { class: 'status' }, `Assistindo: ${watching}`) : null,
+          h('button', { class: 'px-btn small', onclick: () => openScoreboard(scoreList()) }, 'Placar'),
+          fullscreenButton())),
       offline.length ? h('p', { class: 'warn' }, `Desconectado: ${offline.map((p) => p.name).join(', ')}`) : null,
       area);
-    game.render(area, game.view(state, HOST_ID), {
-      me: HOST_ID, shared: false,
-      send(action) { applyAction(HOST_ID, action); syncAll(); },
+    const me = inMatch(HOST_ID) ? HOST_ID : null;
+    g.render(area, g.view(match.state, me), {
+      me, shared: false,
+      send(action) { if (me) { applyAction(HOST_ID, action); syncAll(); } },
     });
   }
 
@@ -205,10 +305,6 @@ export function startHost(root, env, { onExit = null } = {}) {
 
 function clean(name) {
   return String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, 20);
-}
-
-function renameInGame(state, id, name) {
-  return { ...state, players: state.players.map((p) => (p.id === id ? { ...p, name } : p)) };
 }
 
 function qr(text) {

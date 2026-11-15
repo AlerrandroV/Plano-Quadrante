@@ -8,7 +8,7 @@ const badge = document.getElementById('mode-badge');
 
 const LABELS = {
   local: 'Mesma tela',
-  host: 'Criador da sala',
+  host: 'Sala',
   player: 'Jogador',
 };
 

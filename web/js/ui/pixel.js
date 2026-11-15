@@ -15,13 +15,22 @@ export const PAL = {
   cyan: '#73eff7',
 };
 
-// Cada cor de jogador tem 3 tons (claro, base, escuro) para dar volume.
+// Cada cor de jogador tem 3 tons (claro, base, escuro) para dar volume,
+// e a cor do contorno (`edge`): escuro, menos nas peças pretas, que ganham
+// contorno claro para aparecer sobre casas escuras.
 export const TEAM = {
   azul: { light: '#73b7ff', base: '#3b6fd9', dark: '#22357a' },
   vermelho: { light: '#ff8293', base: '#d8344f', dark: '#6e1a2c' },
   verde: { light: '#a7f070', base: '#38b764', dark: '#1d6b4d' },
   laranja: { light: '#ffd27a', base: '#f0882e', dark: '#9a4a17' },
+  roxo: { light: '#c79bff', base: '#7e4fd6', dark: '#3d2373' },
+  rosa: { light: '#ffb3e0', base: '#e85cb0', dark: '#7d2560' },
+  amarelo: { light: '#fff3a0', base: '#f2cf2e', dark: '#8f7414' },
+  ciano: { light: '#b8fbff', base: '#36c4d6', dark: '#1a6a78' },
+  branco: { light: '#ffffff', base: '#e4e8ee', dark: '#9aa6b8' },
+  preto: { light: '#7a7f99', base: '#3a3d52', dark: '#1f2130', edge: '#a9b4cc' },
 };
+for (const t of Object.values(TEAM)) t.edge ??= '#1a1c2c';
 
 // Peão 12x12. K = contorno, L = luz, C = cor, D = sombra.
 const PAWN = [
@@ -90,7 +99,7 @@ export function textWidth(text) {
 export function drawPawn(ctx, x, y, color, { level = 0, ghost = false } = {}) {
   const t = TEAM[color];
   ctx.globalAlpha = ghost ? 0.45 : 1;
-  drawSprite(ctx, PAWN, x, y, { K: PAL.ink, L: t.light, C: t.base, D: t.dark });
+  drawSprite(ctx, PAWN, x, y, { K: t.edge, L: t.light, C: t.base, D: t.dark });
   ctx.globalAlpha = 1;
   if (level > 0) {
     // Selo com o nível, no canto inferior direito.
@@ -134,6 +143,41 @@ export function drawDie(ctx, x, y, value, color, { dim = false } = {}) {
   ctx.globalAlpha = dim ? 0.5 : 1;
   drawSprite(ctx, D8, x, y, { K: PAL.ink, L: t.light, C: t.base, D: t.dark, E: t.dark });
   drawText(ctx, value, x + 9, y + 8, PAL.white, PAL.ink);
+  ctx.globalAlpha = 1;
+}
+
+// Pedra de damas 14x14 (vista de cima, com espessura) e coroa da dama.
+const DISC = [
+  '....KKKKKK....',
+  '..KKLLLLCCKK..',
+  '.KLLLCCCCCCDK.',
+  '.KLLCCCCCCCDK.',
+  'KLLCCCCCCCCCDK',
+  'KLCCCCCCCCCCDK',
+  'KLCCCCCCCCCCDK',
+  'KCCCCCCCCCCCDK',
+  'KCCCCCCCCCCDDK',
+  '.KCCCCCCCCDDK.',
+  '.KDDCCCCCDDDK.',
+  '..KKDDDDDDKK..',
+  '..KEEEEEEEEK..',
+  '....KKKKKK....',
+];
+const CROWN = [
+  'K.K.K.K',
+  'GKGKGKG',
+  'GGGGGGG',
+  'KGGGGGK',
+  '.KKKKK.',
+];
+export const DISC_SIZE = 14;
+
+/** Pedra de damas com o canto superior esquerdo em (x, y). */
+export function drawDisc(ctx, x, y, color, { king = false, ghost = false } = {}) {
+  const t = TEAM[color] || TEAM.branco;
+  ctx.globalAlpha = ghost ? 0.4 : 1;
+  drawSprite(ctx, DISC, x, y, { K: t.edge, L: t.light, C: t.base, D: t.dark, E: t.dark });
+  if (king) drawSprite(ctx, CROWN, x + 3, y + 3, { K: PAL.ink, G: PAL.gold });
   ctx.globalAlpha = 1;
 }
 

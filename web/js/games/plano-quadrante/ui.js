@@ -4,12 +4,12 @@
 //   ctx.me     -> id de quem usa ESTA tela (na mesma tela: quem está na vez)
 //   ctx.send() -> envia uma jogada
 //   ctx.shared -> true = todos na mesma tela (layout de mesa, painéis girados)
-import { h } from '../ui/dom.js';
-import * as G from './plano.js';
+import { h } from '../../ui/dom.js';
+import * as G from './rules.js';
+import { PAL, TEAM, drawPawn, drawDie, pixelCanvas, DIE_SIZE } from '../../ui/pixel.js';
 import {
-  PAL, TEAM, drawPawn, drawDie, drawSprite, drawText, pixelCanvas,
-  PAWN_W, PAWN_H, DIE_SIZE,
-} from './pixel.js';
+  tableLayout, fitTable, setTurnColor, playerPanel as panel, spectatorPanel, btn, logBar,
+} from '../../ui/table.js';
 
 // ------------------------------------------------------------ geometria
 const STEP = 16;
@@ -17,11 +17,6 @@ const MARGIN = 11;
 const BW = (G.MAX - G.MIN) * STEP + 2 * MARGIN;
 const px = (x) => MARGIN + (x - G.MIN) * STEP;
 const py = (y) => MARGIN + (G.MAX - y) * STEP;
-
-const COLOR_LABEL = { azul: 'Azul', vermelho: 'Vermelho', verde: 'Verde', laranja: 'Laranja' };
-// Mesma tela: azul e vermelho sentam do lado de cima (painel girado).
-const TOP_SEATS = ['azul', 'vermelho'];
-const BOTTOM_SEATS = ['verde', 'laranja'];
 
 const ROLL_MS = 750;
 const DEBUG = new URLSearchParams(location.search).has('debug'); // usado pelos testes automáticos
@@ -72,47 +67,26 @@ export function render(root, state, ctx) {
   board.update(state, myTurn && !rolling ? marksFor(state) : [], (x, y) => onBoardTap(state, ctx, x, y, myTurn));
   if (state.anim) board.animate(state.anim);
 
-  document.documentElement.style.setProperty('--turn-bg', TEAM[current.color].dark);
-  document.documentElement.style.setProperty('--turn', TEAM[current.color].base);
+  setTurnColor(current.color);
 
   const controls = controlsPanel(state, ctx, { myTurn, rolling });
-  const boardWrap = h('div', { class: 'pq-board-wrap' }, board.canvas);
 
-  // Grade fixa do tamanho da tela: lado A | tabuleiro | lado B (+ registro).
-  // Os dois lados têm sempre o mesmo tamanho, para a tela ficar simétrica.
+  // Mesma tela: quem senta do lado de cima tem o painel girado.
   const sideA = [];
   const sideB = [];
   if (ctx.shared) {
-    const seat = (colors, list, flipped) => {
-      for (const c of colors) {
-        const i = state.players.findIndex((p) => p.color === c);
-        if (i >= 0) list.push(playerPanel(state, i, { controls: i === state.current ? controls : null, flipped }));
-      }
-    };
-    seat(TOP_SEATS, sideA, true);
-    seat(BOTTOM_SEATS, sideB, false);
+    state.players.forEach((p, i) => {
+      const el = playerPanel(state, i, { controls: i === state.current ? controls : null, flipped: p.side === 'top' });
+      (p.side === 'top' ? sideA : sideB).push(el);
+    });
   } else {
     state.players.forEach((_, i) => { if (i !== meIdx) sideA.push(playerPanel(state, i)); });
-    sideB.push(meIdx >= 0
-      ? playerPanel(state, meIdx, { controls, me: true })
-      : h('section', { class: 'pq-panel has-controls spectator' }, controls));
+    sideB.push(meIdx >= 0 ? playerPanel(state, meIdx, { controls, me: true }) : spectatorPanel(controls));
   }
 
-  // Quem divide o lado com o painel da vez fica "recolhido" (só ícone e números),
-  // como no protótipo, para sobrar espaço para os dados e os botões.
-  for (const side of [sideA, sideB]) {
-    if (side.length > 1 && side.some((el) => el.classList.contains('has-controls'))) {
-      for (const el of side) if (!el.classList.contains('has-controls')) el.classList.add('rested');
-    }
-  }
-
-  const layout = h('div', { class: `pq ${ctx.shared ? 'shared' : 'personal'}` },
-    h('div', { class: 'pq-side a' }, sideA),
-    boardWrap,
-    h('div', { class: 'pq-side b' }, sideB),
-    logBar(state));
+  const layout = tableLayout({ shared: ctx.shared, sideA, sideB, center: board.canvas, log: logBar(state.log, RULES) });
   root.replaceChildren(layout);
-  board.fit(layout);
+  fitTable(layout, board.canvas, BW, board);
 }
 
 function rerender() {
@@ -180,76 +154,20 @@ function onBoardTap(state, ctx, x, y, myTurn) {
 // ================================================================ painéis
 function playerPanel(state, i, { controls = null, flipped = false, me = false } = {}) {
   const p = state.players[i];
-  const onBoard = state.pieces.filter((q) => q.owner === i).length;
-  const isTurn = i === state.current && state.phase !== 'over';
   const tags = [];
-  if (p.eliminated) tags.push(h('span', { class: 'pq-tag out' }, 'FORA'));
-  else if (p.skip > 0) tags.push(h('span', { class: 'pq-tag' }, 'BLOQ.'));
-  if (state.winner === i) tags.push(h('span', { class: 'pq-tag win' }, 'VENCEU'));
-
-  return h('section', {
-    class: ['pq-panel', `team-${p.color}`, isTurn ? 'is-turn' : '', p.eliminated ? 'is-out' : '',
-      controls ? 'has-controls' : '', flipped ? 'flipped' : ''].join(' '),
-  },
-  h('header', { class: 'pq-panel-head' },
-    h('span', { class: 'pq-who' },
-      isTurn ? h('span', { class: 'pq-arrow', 'aria-hidden': 'true' }, '▶') : null,
-      pawnIcon(p.color),
-      h('span', { class: 'pq-name' }, p.name),
-      me ? h('span', { class: 'pq-tag me' }, 'VOCÊ') : null,
-      ...tags),
-    h('span', { class: 'pq-stats' },
-      stat('reserva', 'Na reserva', p.reserve),
-      stat('board', 'No tabuleiro', onBoard),
-      stat('cativeiro', 'Inimigos capturados (meta)', `${p.captives.length}/${G.captiveTarget(state)}`))),
-  controls);
-}
-
-function stat(icon, label, value) {
-  return h('span', { class: 'pq-stat', title: label, 'aria-label': `${label}: ${value}` },
-    statIcon(icon), h('b', {}, value));
-}
-
-const LOCK = [
-  '..KKK..',
-  '.KFFFK.',
-  '.KF.FK.',
-  'KKKKKKK',
-  'KGGGGGK',
-  'KGGKGGK',
-  'KGGKGGK',
-  'KGGGGGK',
-  'KKKKKKK',
-];
-const GRID = [
-  'KKKKKKKKK',
-  'KF.F.F.FK',
-  'KFFFFFFFK',
-  'KF.F.F.FK',
-  'KFFFFFFFK',
-  'KF.F.F.FK',
-  'KFFFFFFFK',
-  'KF.F.F.FK',
-  'KKKKKKKKK',
-];
-function statIcon(kind) {
-  const c = pixelCanvas(9, 9, 'pq-icon');
-  const g = c.getContext('2d');
-  if (kind === 'cativeiro') drawSprite(g, LOCK, 1, 0, { K: PAL.ink, F: PAL.fog, G: PAL.gold });
-  else if (kind === 'board') drawSprite(g, GRID, 0, 0, { K: PAL.ink, F: PAL.fog });
-  else {
-    // Bolinhas = peças em reserva.
-    g.fillStyle = PAL.ink; g.fillRect(1, 1, 7, 7);
-    g.fillStyle = PAL.white; g.fillRect(2, 2, 5, 5);
-    g.fillStyle = PAL.fog; g.fillRect(5, 4, 2, 3); g.fillRect(4, 6, 3, 1);
-  }
-  return c;
-}
-
-function pawnIcon(color) {
-  const c = pixelCanvas(PAWN_W, PAWN_H, 'pq-pawn-icon');
-  drawPawn(c.getContext('2d'), 0, 0, color);
-  return c;
+  if (p.eliminated) tags.push({ text: 'FORA', kind: 'out' });
+  else if (p.skip > 0) tags.push({ text: 'BLOQ.' });
+  if (state.winner === i) tags.push({ text: 'VENCEU', kind: 'win' });
+  return panel({
+    color: p.color, name: p.name, me, flipped, controls, tags,
+    turn: i === state.current && state.phase !== 'over',
+    out: p.eliminated,
+    stats: [
+      { icon: 'reserva', label: 'Na reserva', value: p.reserve },
+      { icon: 'board', label: 'No tabuleiro', value: state.pieces.filter((q) => q.owner === i).length },
+      { icon: 'cativeiro', label: 'Inimigos capturados (meta)', value: `${p.captives.length}/${G.captiveTarget(state)}` },
+    ],
+  });
 }
 
 // ======================================================== painel de ação
@@ -353,10 +271,6 @@ function phaseHint(state) {
   }
 }
 
-function btn(label, onclick, cls = '', disabled = false) {
-  return h('button', { class: `px-btn ${cls}`, onclick, disabled }, label);
-}
-
 function cardView(card) {
   return h('div', { class: 'pq-card' },
     h('span', { class: 'pq-card-name' }, card.name),
@@ -431,34 +345,22 @@ function randomFace() {
   return (Math.floor(Math.random() * 4) + 1) * (Math.random() < 0.5 ? -1 : 1);
 }
 
-// =================================================================== log
-function logBar(state) {
-  const last = state.log[state.log.length - 1] || '';
-  return h('div', { class: 'pq-log' },
-    h('p', { class: 'pq-log-line', title: state.log.slice(-4).join('\n') }, last),
-    h('button', { class: 'px-btn small', onclick: openRules, 'aria-label': 'Regras do jogo' }, '?'));
-}
-
-function openRules() {
-  let dlg = document.getElementById('pq-rules');
-  if (!dlg) {
-    dlg = h('dialog', { id: 'pq-rules', class: 'pq-dialog' },
-      h('h2', {}, 'Como jogar'),
-      h('ul', {},
-        h('li', {}, 'Na sua vez, role os dois dados. O dado ', h('b', { class: 'c-laranja' }, 'quente'),
-          ' anda na horizontal (', h('b', { class: 'c-vermelho' }, 'vermelho ←'), ', ', h('b', { class: 'c-laranja' }, 'laranja →'),
-          '). O dado ', h('b', { class: 'c-azul' }, 'frio'), ' anda na vertical (', h('b', { class: 'c-verde' }, 'verde ↓'), ', ', h('b', { class: 'c-azul' }, 'azul ↑'), ').'),
-        h('li', {}, 'Use UM dos dados: coloque uma peça da reserva contando a partir do centro, ou mova uma peça sua.'),
-        h('li', {}, 'O tabuleiro é infinito: quem sai por um lado volta pelo outro.'),
-        h('li', {}, 'Cair numa peça inimiga é captura (obrigatória!). Ela vai para o seu cativeiro, sua peça sobe de nível e você joga de novo.'),
-        h('li', {}, 'Peças com nível podem, depois de mover, andar até esse número de casas extras em linha reta.'),
-        h('li', {}, 'Dados com números iguais dão uma carta especial: use na hora ou descarte.'),
-        h('li', {}, 'Vence quem capturar 6 peças (2 jogadores) ou 8 (3 ou 4), ou quem sobrar com peças.')),
-      h('form', { method: 'dialog' }, h('button', { class: 'px-btn primary' }, 'Entendi')));
-    document.body.append(dlg);
-  }
-  dlg.showModal();
-}
+// ================================================================ regras
+const c = (cls, text) => h('b', { class: cls }, text);
+export const RULES = {
+  title: 'Plano Quadrante',
+  items: [
+    ['Na sua vez, role os dois dados. O dado ', c('c-laranja', 'quente'), ' anda na horizontal (',
+      c('c-vermelho', 'vermelho ←'), ', ', c('c-laranja', 'laranja →'), '). O dado ', c('c-azul', 'frio'),
+      ' anda na vertical (', c('c-verde', 'verde ↓'), ', ', c('c-azul', 'azul ↑'), ').'],
+    'Use UM dos dados: coloque uma peça da reserva contando a partir do centro, ou mova uma peça sua.',
+    'O tabuleiro é infinito: quem sai por um lado volta pelo outro.',
+    'Cair numa peça inimiga é captura (obrigatória!). Ela vai para o seu cativeiro, sua peça sobe de nível e você joga de novo.',
+    'Peças com nível podem, depois de mover, andar até esse número de casas extras em linha reta.',
+    'Dados com números iguais dão uma carta especial: use na hora ou descarte.',
+    'Vence quem capturar 6 peças (2 jogadores) ou 8 (3 ou 4), ou quem sobrar com peças.',
+  ],
+};
 
 // ============================================================ tabuleiro
 class Board {
@@ -493,44 +395,6 @@ class Board {
 
   busy() {
     return !!this.anim;
-  }
-
-  /**
-   * Calcula o tamanho do tabuleiro para a partida caber inteira na tela:
-   * em pé, o que sobra da altura vai igualmente para os dois lados;
-   * deitado, o que sobra da largura vira duas colunas iguais.
-   */
-  fit(pq) {
-    const run = () => {
-      if (!pq.isConnected) return;
-      const W = pq.clientWidth;
-      const H = pq.clientHeight;
-      const log = pq.querySelector('.pq-log');
-      const gap = 8;
-      const logH = log ? log.offsetHeight + gap : 0;
-      const landscape = W > H * 1.15;
-      pq.classList.toggle('landscape', landscape);
-      // Espaço mínimo de cada lado (painéis), proporcional à tela.
-      const sideMin = landscape
-        ? Math.max(170, Math.min(240, W * 0.22))
-        : Math.max(150, Math.min(180, H * 0.24));
-      let S = landscape
-        ? Math.min(H - logH, W - 2 * (sideMin + gap))
-        : Math.min(W, H - logH - 2 * (sideMin + gap));
-      S = Math.max(110, S);
-      let k = S / BW;
-      // Escala inteira/meia mantém os pixels nítidos; em telas pequenas,
-      // vale mais o tabuleiro grande do que a escala exata.
-      k = k >= 3 ? Math.floor(k * 2) / 2 : k >= 1 ? Math.floor(k * 4) / 4 : k;
-      const size = Math.floor(BW * k);
-      pq.style.setProperty('--board', `${size}px`);
-      this.canvas.style.width = `${size}px`;
-      this.canvas.style.height = `${size}px`;
-    };
-    run();
-    this.ro?.disconnect();
-    this.ro = new ResizeObserver(run);
-    this.ro.observe(pq);
   }
 
   tap(e) {

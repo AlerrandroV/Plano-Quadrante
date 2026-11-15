@@ -15,7 +15,7 @@ export function startAppMenu(root, env, setBadge) {
         startLocal(root, { inApp: true, onExit: menu });
       }),
       choice('Sala Wi-Fi', 'Cada um no seu celular. Os amigos entram pelo navegador, sem instalar nada.', () => {
-        setBadge('Criador da sala');
+        setBadge('Sala');
         startHost(root, env, { onExit: menu });
       })));
   }

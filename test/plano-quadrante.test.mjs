@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as g from '../web/js/game/plano.js';
+import * as g from '../web/js/games/plano-quadrante/rules.js';
 
 const two = [{ id: 'a', name: 'Ana' }, { id: 'b', name: 'Beto' }];
 
@@ -183,4 +183,18 @@ test('partidas aleatórias completas terminam sem travar e sem perder peças', (
     assert.equal(s.phase, 'over', `partida de ${n} jogadores não terminou`);
   }
   assert.ok(passes >= 0);
+});
+
+test('cada jogador escolhe a cor; repetidas recebem uma livre; lado da mesa vem do assento', () => {
+  const s = g.setup([
+    { id: 'a', name: 'Ana', color: 'rosa' },
+    { id: 'b', name: 'Beto', color: 'rosa' },
+    { id: 'c', name: 'Cris' },
+  ]);
+  const colors = s.players.map((p) => p.color);
+  assert.equal(colors[0], 'rosa');
+  assert.equal(new Set(colors).size, 3);
+  // 3 jogadores: assentos verde (embaixo), azul e vermelho (em cima)
+  assert.deepEqual(s.players.map((p) => p.side), ['bottom', 'top', 'top']);
+  assert.equal(g.outcome(s), null);
 });

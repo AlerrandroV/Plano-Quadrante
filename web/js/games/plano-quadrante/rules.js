@@ -10,6 +10,8 @@
 //  Dado frio   -> eixo y: verde = baixo (-),     azul = cima (+)
 // ===================================================================
 
+import { assignColors } from '../../ui/colors.js';
+
 export const meta = { id: 'plano-quadrante', name: 'Plano Quadrante', minPlayers: 2, maxPlayers: 4 };
 
 export const MIN = -4;
@@ -18,12 +20,12 @@ const SIZE = MAX - MIN + 1;
 export const PIECES_PER_PLAYER = 8;
 export const MAX_LEVEL = 4;
 
-// Cores na ordem dos ids do protótipo original.
-export const COLORS = ['azul', 'vermelho', 'verde', 'laranja'];
-// Quais cores jogam conforme o nº de jogadores (igual ao protótipo):
-// com 2, azul x verde (um de frente para o outro).
+// Assentos conforme o nº de jogadores (igual ao protótipo): com 2, um de
+// frente para o outro. As cores do protótipo viram só a cor PADRÃO de cada
+// assento; cada jogador pode escolher a sua (muita gente acha que dá sorte).
 const SEATS = { 2: ['azul', 'verde'], 3: ['verde', 'azul', 'vermelho'], 4: ['azul', 'vermelho', 'verde', 'laranja'] };
-export function seatsFor(n) {
+const TOP = ['azul', 'vermelho']; // assentos do lado de cima da mesa
+export function defaultColors(n) {
   return SEATS[n] || SEATS[4];
 }
 
@@ -74,10 +76,12 @@ export function captiveTarget(state) {
 
 export function setup(list) {
   const seats = SEATS[list.length] || SEATS[4];
-  const players = list.slice(0, 4).map((p, i) => ({
+  const withColors = assignColors(list.slice(0, 4), seats);
+  const players = withColors.map((p, i) => ({
     id: p.id,
     name: p.name,
-    color: seats[i],
+    color: p.color,
+    side: TOP.includes(seats[i]) ? 'top' : 'bottom', // lado da mesa (mesma tela)
     reserve: PIECES_PER_PLAYER,
     captives: [],        // cores das peças inimigas que este jogador capturou
     eliminated: false,
@@ -111,6 +115,12 @@ export function setup(list) {
   };
   log(s, `${players[s.current].name} começa.`);
   return s;
+}
+
+/** Resultado para o placar da sala: null enquanto a partida não acabou. */
+export function outcome(state) {
+  if (state.phase !== 'over') return null;
+  return { winners: state.winner != null ? [state.players[state.winner].id] : [] };
 }
 
 export function activePlayers(state) {
