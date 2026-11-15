@@ -1,0 +1,83 @@
+# Gera o APK a cada mudança no jogo ou no app e publica como a Release
+# mais recente. O site (GitHub Pages) aponta sempre para:
+#   releases/latest/download/plano-quadrante.apk
+name: App Android (APK)
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'android/**', 'test/**', '.github/workflows/android.yml']
+  pull_request:
+    paths: ['web/**', 'android/**', 'test/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: 0.1.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Testes do jogo
+        run: npm test
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      # O Android SDK já vem instalado no ubuntu-latest (ANDROID_HOME).
+      - name: Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Opcional, mas recomendado: com uma chave fixa, o celular aceita
+      # instalar a versão nova por cima da antiga. Ver README.
+      - name: Chave de assinatura
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PQ_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/pq.jks"
+            echo "PQ_KEYSTORE_FILE=$RUNNER_TEMP/pq.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Sem PQ_KEYSTORE_BASE64: APK assinado com chave de debug temporária (não atualiza por cima de versões anteriores)."
+          fi
+
+      - name: Compilar APK
+        working-directory: android
+        env:
+          PQ_KEYSTORE_PASSWORD: ${{ secrets.PQ_KEYSTORE_PASSWORD }}
+          PQ_KEY_ALIAS: ${{ secrets.PQ_KEY_ALIAS }}
+          PQ_KEY_PASSWORD: ${{ secrets.PQ_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION
+          cp app/build/outputs/apk/release/app-release.apk ../plano-quadrante.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plano-quadrante-apk
+          path: plano-quadrante.apk
+
+      - name: Publicar Release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Plano Quadrante ${{ env.VERSION }}
+          make_latest: true
+          files: plano-quadrante.apk
+          body: |
+            **Como jogar cada um no seu celular**
+            1. Quem cria a sala instala este APK (pode ser preciso permitir "fontes desconhecidas").
+            2. Todos na mesma rede Wi-Fi, ou conectados ao hotspot de quem criou a sala.
+            3. Os amigos leem o QR code no navegador (Android ou iPhone). Não precisam instalar nada.

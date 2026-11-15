@@ -1,0 +1,6 @@
+Press Start 2P — Copyright 2012 The Press Start 2P Project Authors (CodeMan38)
+VT323 — Copyright 2011 The VT323 Project Authors (Peter Hull)
+
+Ambas licenciadas sob a SIL Open Font License, Version 1.1:
+https://openfontlicense.org
+Arquivos obtidos via Fontsource (@fontsource/press-start-2p, @fontsource/vt323).
