@@ -354,7 +354,7 @@ main:has(.setup) { max-width: 900px; }
 @media (max-height: 700px) {
   .topbar { display: none; }
   .card { padding: 12px; gap: 8px; }
-  .setup .muted, .lobby .hint { display: none; }
+  .setup .muted, .lobby .hint, .setup-card .hint { display: none; }
   .seats { gap: 6px; }
   .px-btn, .btn { padding: 8px 10px; }
 }
@@ -469,3 +469,15 @@ main:has(.room) > .room-footer { margin-top: 0; margin-bottom: 0; }
   .invite-text { justify-items: start; }
   .lobby .qr { width: min(200px, 36vh); }
 }
+
+/* Robôs */
+.px-btn.who { flex: none; min-width: 0; white-space: nowrap; }
+.px-btn.who.bot { background: var(--cyan); border-bottom-color: #3a9aa2; }
+.bot-name {
+  flex: 1; min-width: 0; padding: 8px 10px; margin: var(--px); background: var(--ink);
+  color: var(--cyan); font: 9px/1.6 var(--title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.add-bot { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); align-items: center; gap: 2px; }
+.add-bot .px-btn { padding: 8px 2px; font-size: 8px; min-width: 0; overflow: hidden; }
+/* Painéis estreitos (sem a vez): nome na fonte de texto, mais compacta. */
+.pq-panel:not(.has-controls) .pq-name { font: 21px/1 var(--text); text-shadow: 1px 1px 0 var(--bg-d, var(--ink)); }

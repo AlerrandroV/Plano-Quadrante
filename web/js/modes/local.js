@@ -7,6 +7,11 @@ import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
 import { capacityText } from '../games/index.js';
 import { catalog, colorButton, gameArt, scoreboard, openScoreboard, recordResult } from '../ui/platform.js';
 import { COLOR_LABEL, firstFree } from '../ui/colors.js';
+import { BOT_LEVELS, levelLabel, hasBot } from '../bots/index.js';
+import { botDriver } from '../bots/driver.js';
+
+// Quem senta em cada lugar: pessoa ou robô (com nível).
+const CONTROLLERS = [null, ...BOT_LEVELS.map((l) => l.id)];
 
 const SCORE_KEY = 'pq-local-scores';
 const SETUP_KEY = 'pq-local-setup';
@@ -38,7 +43,8 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
     const fill = () => {
       const defaults = game.defaultColors(count);
       for (let i = 0; i < count; i++) {
-        seats[i] ||= { name: pref.seats?.[i]?.name || '', color: pref.seats?.[i]?.color || null };
+        seats[i] ||= { name: pref.seats?.[i]?.name || '', color: pref.seats?.[i]?.color || null, bot: pref.seats?.[i]?.bot || null };
+        if (!hasBot(game.id)) seats[i].bot = null;
       }
       seats.length = count;
       // Cores únicas: quem não tem cor (ou repetiu) pega a padrão do assento.
@@ -49,7 +55,7 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
       });
     };
     const save = () => {
-      prefs[game.id] = { count, seats: seats.map((s) => ({ name: s.name, color: s.color })) };
+      prefs[game.id] = { count, seats: seats.map((s) => ({ name: s.name, color: s.color, bot: s.bot })) };
       store.set(SETUP_KEY, JSON.stringify(prefs));
     };
 
@@ -61,11 +67,21 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
           h('span', { class: 'seat-color' }, `Jogador ${i + 1} · ${game.seatHint(count, i)}`),
           h('div', { class: 'row' },
             colorButton({ value: s.color, taken: others, onPick: (c) => { s.color = c; save(); draw(); } }),
-            h('input', {
-              type: 'text', maxLength: 16, value: s.name, placeholder: COLOR_LABEL[s.color],
-              'aria-label': `Nome do jogador ${i + 1}`,
-              oninput: (e) => { s.name = e.target.value; save(); },
-            })));
+            s.bot
+              ? h('span', { class: 'bot-name' }, 'Robô')
+              : h('input', {
+                type: 'text', maxLength: 16, value: s.name, placeholder: COLOR_LABEL[s.color],
+                'aria-label': `Nome do jogador ${i + 1}`,
+                oninput: (e) => { s.name = e.target.value; save(); },
+              }),
+            hasBot(game.id) ? h('button', {
+              class: 'px-btn small who ' + (s.bot ? 'bot' : 'human'),
+              'aria-label': `Jogador ${i + 1}: ${s.bot ? `robô ${levelLabel(s.bot)}` : 'pessoa'}. Tocar para trocar.`,
+              onclick: () => {
+                s.bot = CONTROLLERS[(CONTROLLERS.indexOf(s.bot) + 1) % CONTROLLERS.length];
+                save(); draw();
+              },
+            }, s.bot ? levelLabel(s.bot) : 'Pessoa') : null));
       });
       mount(root,
         h('div', { class: 'toolbar' }, h('button', { class: 'px-btn small', onclick: catalogScreen }, '< Jogos')),
@@ -79,6 +95,7 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
               'aria-label': `${n} jogadores`,
               onclick: () => { count = n; save(); draw(); },
             }, String(n)))) : null,
+          hasBot(game.id) ? h('p', { class: 'muted hint' }, 'Toque em "Pessoa" para trocar por um robô (Fácil, Médio ou Difícil).') : null,
           h('div', { class: 'seats' }, seatRows),
           h('button', { class: 'px-btn primary wide', onclick: () => { save(); play(game, count, seats); } }, 'Começar')));
     }
@@ -86,11 +103,35 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
   }
 
   function play(game, count, seats) {
-    let state = game.setup(seats.slice(0, count).map((s) => ({
-      id: randomId(), name: s.name.trim().slice(0, 16) || COLOR_LABEL[s.color], color: s.color,
-    })));
+    const bots = new Map(); // id do jogador -> nível
+    const sameLevel = {};
+    const list = seats.slice(0, count).map((s) => {
+      const id = randomId();
+      if (!s.bot) return { id, name: s.name.trim().slice(0, 16) || COLOR_LABEL[s.color], color: s.color };
+      bots.set(id, s.bot);
+      sameLevel[s.bot] = (sameLevel[s.bot] || 0) + 1;
+      return { id, name: `Robô ${levelLabel(s.bot)}`, color: s.color };
+    });
+    // Robôs do mesmo nível ganham número (Robô Médio 2).
+    const seen = {};
+    for (const p of list) {
+      const lvl = bots.get(p.id);
+      if (lvl && sameLevel[lvl] > 1) p.name += ` ${(seen[lvl] = (seen[lvl] || 0) + 1)}`;
+    }
+    const humans = list.filter((p) => !bots.has(p.id));
+    // Uma pessoa só (contra robôs): tela "pessoal", com o seu lado embaixo.
+    const solo = humans.length === 1;
+    let state = game.setup(list);
     let recorded = false;
     const area = h('section', { class: 'game' });
+    const driver = botDriver({
+      gameId: game.id, bots,
+      getState: () => state,
+      apply: (id, action) => {
+        const next = game.act(state, id, action);
+        if (next) { state = next; draw(); }
+      },
+    });
 
     function draw() {
       const result = game.outcome(state);
@@ -102,9 +143,14 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
         saveScores(scores);
         recorded = true;
       } else if (!result) recorded = false;
-      const me = game.activePlayers(state)[0] ?? state.players[0].id;
-      game.render(area, game.view(state, me), {
-        me, shared: true,
+      // Quem usa a tela agora: a pessoa (se for só uma) ou quem está na vez.
+      // Na vez de um robô ninguém toca no tabuleiro ('robo').
+      const active = game.activePlayers(state)[0];
+      const me = solo ? humans[0].id
+        : active && !bots.has(active) ? active
+          : active ? 'robo' : (humans[0]?.id ?? 'robo');
+      game.render(area, game.view(state, solo ? me : active || me), {
+        me, shared: !solo, bots: new Set(bots.keys()),
         // `as`: na mesma tela, algumas respostas são de quem NÃO está na vez
         // (ex.: aceitar empate nas damas).
         send(action, as) {
@@ -112,11 +158,12 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
           if (next) { state = next; draw(); }
         },
       });
+      driver.kick();
     }
 
     mount(root,
       h('div', { class: 'toolbar' },
-        h('button', { class: 'px-btn small', onclick: () => { if (confirm('Sair da partida?')) setupScreen(game); } }, '< Sair'),
+        h('button', { class: 'px-btn small', onclick: () => { if (confirm('Sair da partida?')) { driver.stop(); setupScreen(game); } } }, '< Sair'),
         h('span', { class: 'tools' },
           h('button', { class: 'px-btn small', onclick: () => openScoreboard([...scores.values()], { title: 'Placar desta mesa' }) }, 'Placar'),
           fullscreenButton())),
