@@ -4,6 +4,7 @@
 import { game } from '../game/index.js';
 import { connectRelay } from '../net/relay-client.js';
 import { h, mount, store } from '../ui/dom.js';
+import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
 
 const HOST_ID = 'host';
 const SAVE_KEY = 'pq-host-save';
@@ -134,6 +135,7 @@ export function startHost(root, env) {
   }
 
   function drawLobby() {
+    leaveFocus();
     const urls = info?.lanUrls ?? [];
     const nameInput = h('input', {
       type: 'text', maxLength: 20, value: hostName, 'aria-label': 'Seu nome',
@@ -170,7 +172,7 @@ export function startHost(root, env) {
     mount(root,
       h('div', { class: 'toolbar' },
         h('button', { class: 'btn ghost', onclick: backToLobby }, '< Sala'),
-        statusEl),
+        h('span', { class: 'tools' }, statusEl, fullscreenButton())),
       offline.length ? h('p', { class: 'warn' }, `Desconectado: ${offline.map((p) => p.name).join(', ')}`) : null,
       area);
     game.render(area, game.view(state, HOST_ID), {

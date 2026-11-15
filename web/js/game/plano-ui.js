@@ -493,6 +493,10 @@ class Board {
     this.ro?.disconnect();
     this.ro = new ResizeObserver(fit);
     this.ro.observe(wrap);
+    // A altura disponível muda ao entrar/sair da tela cheia ou girar o aparelho.
+    if (this.onResize) window.removeEventListener('resize', this.onResize);
+    this.onResize = fit;
+    window.addEventListener('resize', fit);
     requestAnimationFrame(fit);
   }
 

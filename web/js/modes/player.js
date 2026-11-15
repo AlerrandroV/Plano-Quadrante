@@ -3,6 +3,7 @@
 import { game } from '../game/index.js';
 import { connectRelay } from '../net/relay-client.js';
 import { h, mount, randomId, store } from '../ui/dom.js';
+import { fullscreenButton } from '../ui/fullscreen.js';
 
 export function startPlayer(root) {
   // O id fica salvo: se a tela apagar ou a página recarregar,
@@ -86,7 +87,7 @@ export function startPlayer(root) {
             if (clean) { store.set('pq-name', clean); relay.send({ type: 'hello', name: clean }); }
           },
         }, 'Nome'),
-        statusEl),
+        h('span', { class: 'tools' }, statusEl, fullscreenButton())),
       area);
   }
 }
