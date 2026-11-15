@@ -173,6 +173,9 @@ function controlsPanel(state, ctx, { myTurn, legal, meIdx }) {
     title = w ? `${w.name} venceu!` : 'Empate!';
     body = `Fim: ${state.endReason}.`;
     if (playing || ctx.shared) buttons.push(btn('Jogar de novo', () => send({ type: 'restart' }), 'primary'));
+  } else if (state.drawOffer != null && ctx.bots?.has(state.players[1 - state.drawOffer].id)) {
+    title = 'Empate?';
+    body = `${state.players[1 - state.drawOffer].name} está pensando…`;
   } else if (state.drawOffer != null && (ctx.shared || (playing && state.drawOffer !== meIdx))) {
     const who = state.players[state.drawOffer];
     // Na mesma tela, quem responde é o outro jogador (não quem está na vez).

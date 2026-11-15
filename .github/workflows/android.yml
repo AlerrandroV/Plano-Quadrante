@@ -39,8 +39,8 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - uses: gradle/actions/setup-gradle@v4
 
-      # Opcional, mas recomendado: com uma chave fixa, o celular aceita
-      # instalar a versão nova por cima da antiga. Ver README.
+      # A chave é sempre a mesma (a do repositório, ou a dos secrets se
+      # existirem), então o celular aceita instalar a versão nova por cima.
       - name: Chave de assinatura
         env:
           KEYSTORE_BASE64: ${{ secrets.PQ_KEYSTORE_BASE64 }}
@@ -49,7 +49,7 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/pq.jks"
             echo "PQ_KEYSTORE_FILE=$RUNNER_TEMP/pq.jks" >> "$GITHUB_ENV"
           else
-            echo "::warning::Sem PQ_KEYSTORE_BASE64: APK assinado com chave de debug temporária (não atualiza por cima de versões anteriores)."
+            echo "Sem PQ_KEYSTORE_BASE64: usando a chave fixa do repositório (android/app/plano-quadrante.jks)."
           fi
 
       - name: Compilar APK

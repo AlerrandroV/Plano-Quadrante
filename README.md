@@ -129,6 +129,7 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/ui/table.js          "mesa" comum: grade simétrica, painéis, registro, ajuda
   js/ui/platform.js       catálogo, seletor de cores, placar
   js/ui/colors.js         as 10 cores e a regra de cores únicas
+  js/bots/                robôs (damas: alfa-beta; Plano Quadrante: avaliação de perigo) + Web Worker
   js/modes/menu.js        menu do app (Mesma tela / Sala Wi-Fi)
   js/modes/local.js       mesma tela: catálogo → preparação → partida
   js/modes/host.js        sala: QR, jogo, quem joga/assiste, placar, autoridade
@@ -179,6 +180,44 @@ ilustração (desenhada em código, 64×40) e a dica de cada assento. Os modos
 (mesma tela, sala, jogador, espectador), as cores e o placar passam a
 funcionar sem mexer na rede.
 
+## Robôs (jogar contra o computador)
+
+Os dois jogos têm robôs em **3 níveis**:
+- **Na mesma tela:** na preparação, cada lugar alterna *Pessoa → Fácil → Médio → Difícil*.
+- **Na sala Wi-Fi:** o mestre usa *+ Robô* na aba Pessoas. O robô entra como jogador: tem cor, joga ou assiste e conta no placar.
+
+Os robôs pensam num Web Worker, sem travar a tela, e esperam as animações
+para dar tempo de acompanhar a jogada.
+
+**Damas** (`web/js/bots/damas.js`): minimax com poda alfa-beta. O nível é
+quantos meios-lances o robô enxerga à frente:
+- **Fácil:** 2 meios-lances. Julga com erro e às vezes faz um lance qualquer.
+- **Médio:** 4 meios-lances.
+- **Difícil:** até 12 meios-lances, com limite de tempo.
+
+A busca nunca para no meio de uma sequência de capturas obrigatórias.
+
+**Plano Quadrante** (`web/js/bots/plano-quadrante.js`): o robô testa cada
+jogada possível (colocar ou mover, cartas, bônus) e avalia o resultado. O
+nível muda o que ele *percebe*:
+- **Fácil:** jogador distraído. Em 1 de cada 4 jogadas ignora o perigo, julga com erro e esquece o bônus na metade das vezes.
+- **Médio:** calcula a chance de cada peça sua ser capturada nas 64 combinações de dados dos adversários. Mas não percebe os movimentos extras das peças evoluídas, e usa o próprio bônus só para capturar.
+- **Difícil:** inclui os movimentos extras dos adversários no cálculo de perigo, usa o bônus para se posicionar e escolhe o melhor alvo de cada carta.
+
+Medido em partidas entre robôs (`test/bots.test.mjs` garante que continua assim):
+
+| Confronto | Resultado |
+|---|---|
+| Damas: Médio × Fácil | ~80% de vitórias do Médio |
+| Damas: Difícil × Médio | 9 vitórias, 1 empate e nenhuma derrota em 10 partidas |
+| Plano Quadrante: Médio × Fácil | ~89% de vitórias do Médio |
+| Plano Quadrante: Difícil × Médio | ~63% de vitórias do Difícil |
+
+As simulações também mostraram algo sobre o Plano Quadrante: **perceber o
+perigo de ser capturado é a habilidade que mais pesa**. Ignorá-la em 1/3 das
+jogadas já faz perder ~80% das partidas, mesmo com a sorte dos dados.
+Esquecer o próprio bônus, sozinho, quase não muda o resultado.
+
 ## Damas: regras brasileiras
 
 Damas olímpicas no tabuleiro 8×8, casa a1 escura, 12 pedras de cada lado.
@@ -203,28 +242,25 @@ branco e preto). O tabuleiro continua preto e branco.
   cada mudança em `web/` ou `android/` na `main`. O botão do site aponta
   sempre para a mais recente.
 
-### Chave de assinatura (recomendado)
+### Chave de assinatura
 
-Sem uma chave fixa, cada APK sai assinado com uma chave diferente e o Android
-**não deixa atualizar** por cima da versão anterior (é preciso desinstalar
-antes). Para resolver, gere uma chave uma única vez:
+O Android só instala uma versão nova **por cima** da antiga se as duas
+tiverem a mesma chave. Por isso o APK é sempre assinado com a chave fixa
+`android/app/plano-quadrante.jks`, que está no repositório.
 
-```bash
-keytool -genkeypair -v -keystore pq.jks -alias planoquadrante \
-  -keyalg RSA -keysize 2048 -validity 10000
-base64 -w0 pq.jks   # copie a saída
-```
+> Até a v0.1.9, cada build saía com uma chave diferente e a atualização dava
+> "conflito com o pacote existente". **Desinstale a versão antiga uma vez**;
+> daí em diante, as atualizações instalam por cima.
 
-E crie em *Settings → Secrets and variables → Actions*:
-
-| Secret | Valor |
-|---|---|
-| `PQ_KEYSTORE_BASE64` | a saída do `base64` |
-| `PQ_KEYSTORE_PASSWORD` | a senha do keystore |
-| `PQ_KEY_ALIAS` | `planoquadrante` |
-| `PQ_KEY_PASSWORD` | a senha da chave |
-
-Guarde o `pq.jks` em lugar seguro e **nunca** o coloque no repositório.
+Como a chave está no repositório público, qualquer pessoa poderia assinar um
+APK que o celular aceitaria como atualização. Para um projeto escolar isso
+basta, desde que você só instale o APK das Releases deste repositório. Se
+quiser uma chave secreta, gere uma (`keytool -genkeypair -keystore pq.jks
+-alias planoquadrante -keyalg RSA -keysize 2048 -validity 10000`) e
+cadastre em *Settings → Secrets and variables → Actions* os secrets
+`PQ_KEYSTORE_BASE64` (saída de `base64 -w0 pq.jks`), `PQ_KEYSTORE_PASSWORD`,
+`PQ_KEY_ALIAS` e `PQ_KEY_PASSWORD`. Trocar de chave exige desinstalar uma
+última vez.
 
 ## Limitações conhecidas
 

@@ -77,6 +77,13 @@ export function activePlayers(state) {
   return state.phase === 'over' ? [] : [state.players[sideIndex(state, state.turn)].id];
 }
 
+/** Quem precisa agir agora (inclui quem deve responder a uma proposta de empate). */
+export function pendingPlayers(state) {
+  if (state.phase === 'over') return [];
+  if (state.drawOffer != null) return [state.players[1 - state.drawOffer].id];
+  return activePlayers(state);
+}
+
 export function view(state) {
   return state; // nada é secreto
 }

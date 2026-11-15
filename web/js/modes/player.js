@@ -77,7 +77,8 @@ export function startPlayer(root) {
       const game = getGame(msg.gameId);
       const me = msg.members.find((m) => m.id === msg.you);
       const taken = msg.members.filter((m) => m.id !== msg.you).map((m) => m.color);
-      mount(area,
+      // Dois cartões (lado a lado quando couber): o jogo e a sua cor | quem está na sala.
+      mount(area, h('div', { class: 'lobby' },
         h('section', { class: 'card' },
           h('h2', {}, 'Na sala!'),
           game ? h('div', { class: 'setup-head' }, gameArt(game, 'game-art small'),
@@ -89,14 +90,16 @@ export function startPlayer(root) {
           colorPicker({
             value: me?.color, taken,
             onPick: (c) => { store.set('pq-color', c); hello(); },
-          }),
+          })),
+        h('section', { class: 'card' },
+          h('h2', {}, `Na sala (${msg.members.length})`),
           h('ul', { class: 'member-list' }, msg.members.map((m) => h('li', { class: `team-${m.color}` },
             pawnBadge(m.color),
             h('span', { class: 'member-name' }, m.name,
               m.id === msg.you ? h('span', { class: 'tag' }, 'você') : null,
               m.host ? h('span', { class: 'tag' }, 'mestre') : null),
             h('span', { class: 'role-tag ' + m.role }, m.role === 'play' ? 'Joga' : 'Assiste'))))),
-        scores.length ? scoreboard(scores) : null);
+        scores.length ? scoreboard(scores) : null));
     }
 
     function drawGame(msg) {

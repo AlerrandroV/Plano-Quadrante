@@ -8,6 +8,8 @@ import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
 import { GAMES, getGame } from '../games/index.js';
 import { catalog, colorButton, gameArt, scoreboard, openScoreboard, recordResult, pawnBadge } from '../ui/platform.js';
 import { firstFree, isColor } from '../ui/colors.js';
+import { BOT_LEVELS, levelLabel, hasBot } from '../bots/index.js';
+import { botDriver } from '../bots/driver.js';
 
 const HOST_ID = 'host';
 const SAVE_KEY = 'pq-room';
@@ -16,6 +18,7 @@ export function startHost(root, env, { onExit = null } = {}) {
   let info = env.server;
   const host = { id: HOST_ID, name: store.get('pq-name', 'Mestre'), color: store.get('pq-color', 'azul'), role: 'play', online: true, host: true };
   const clients = new Map(); // id -> { id, name, color, role, online }
+  const robots = new Map();  // id -> { id, name, color, role, online: true, bot: nível }
   let gameId = store.get('pq-room-game', GAMES[0].id);
   let match = null;          // { gameId, state, recorded }
   const scores = new Map();  // id -> { id, name, color, wins, games }
@@ -25,10 +28,35 @@ export function startHost(root, env, { onExit = null } = {}) {
 
   restore();
 
+  // Os robôs da sala rodam AQUI, no aparelho do mestre.
+  let driver = null;
+  function kickBots() {
+    if (!match) { driver?.stop(); driver = null; return; }
+    if (!driver || driver.gameId !== match.gameId) {
+      driver?.stop();
+      const bots = new Map([...robots.values()].map((r) => [r.id, r.bot]));
+      driver = botDriver({
+        gameId: match.gameId, bots,
+        getState: () => match?.state,
+        apply: (id, action) => { if (match) { applyAction(id, action); syncAll(); } },
+      });
+      driver.gameId = match.gameId;
+    }
+    driver.kick();
+  }
+
+  function addRobot(level) {
+    const n = [...robots.values()].filter((r) => r.bot === level).length + 1;
+    const id = `robo-${level}-${Date.now().toString(36)}`;
+    const r = { id, name: `Robô ${levelLabel(level)}${n > 1 ? ` ${n}` : ''}`, color: null, role: defaultRole(), online: true, bot: level };
+    r.color = firstFree(takenBy(id));
+    robots.set(id, r);
+  }
+
   const relay = connectRelay({ role: 'host', onStatus: setStatus, onMessage: handleRelay });
 
   // ------------------------------------------------------------ membros
-  const members = () => [host, ...clients.values()];
+  const members = () => [host, ...clients.values(), ...robots.values()];
   const online = () => members().filter((m) => m.online);
   const game = () => getGame(gameId) || GAMES[0];
   const takenBy = (id) => members().filter((m) => m.id !== id && m.online).map((m) => m.color);
@@ -113,6 +141,7 @@ export function startHost(root, env, { onExit = null } = {}) {
     for (const c of clients.values()) syncOne(c.id);
     persist();
     draw();
+    kickBots();
   }
 
   function syncOne(id) {
@@ -154,6 +183,7 @@ export function startHost(root, env, { onExit = null } = {}) {
     const players = lineup().map(({ id, name, color }) => ({ id, name, color }));
     if (players.length < g.meta.minPlayers) return;
     match = { gameId: g.id, state: g.setup(players), recorded: false };
+    driver?.stop(); driver = null; // robôs da partida nova
     syncAll();
   }
 
@@ -170,6 +200,7 @@ export function startHost(root, env, { onExit = null } = {}) {
     store.set(SAVE_KEY, JSON.stringify({
       at: Date.now(), gameId, match, scores: scoreList(),
       clients: [...clients.values()].map(({ id, name, color, role }) => ({ id, name, color, role })),
+      robots: [...robots.values()],
     }));
   }
   function restore() {
@@ -179,6 +210,7 @@ export function startHost(root, env, { onExit = null } = {}) {
       if (getGame(saved.gameId)) gameId = saved.gameId;
       for (const r of saved.scores || []) scores.set(r.id, r);
       for (const c of saved.clients || []) clients.set(c.id, { ...c, online: false });
+      for (const r of saved.robots || []) robots.set(r.id, { ...r, online: true });
       if (saved.match && getGame(saved.match.gameId) && Date.now() - saved.at < 30 * 60 * 1000) match = saved.match;
     } catch { /* ignora */ }
   }
@@ -231,7 +263,14 @@ export function startHost(root, env, { onExit = null } = {}) {
           class: 'px-btn small role ' + m.role,
           onclick: () => { m.role = m.role === 'play' ? 'watch' : 'play'; syncAll(); },
           'aria-label': `${m.name}: ${m.role === 'play' ? 'joga' : 'assiste'}. Tocar para trocar.`,
-        }, m.role === 'play' ? 'Joga' : 'Assiste')))),
+        }, m.role === 'play' ? 'Joga' : 'Assiste'),
+        m.bot ? h('button', {
+          class: 'icon-btn', 'aria-label': `Remover ${m.name}`,
+          onclick: () => { robots.delete(m.id); syncAll(); },
+        }, 'X') : null))),
+      hasBot(g.id) ? h('div', { class: 'seg add-bot', role: 'group', 'aria-label': 'Adicionar robô' },
+        h('span', { class: 'seg-label' }, '+ Robô'),
+        BOT_LEVELS.map((l) => h('button', { class: 'px-btn small', onclick: () => { addRobot(l.id); syncAll(); } }, l.label))) : null,
       h('p', { class: 'muted hint' }, 'Toque em Joga/Assiste para decidir quem joga. Quem assiste vê a partida ao vivo.'));
 
     const pick = h('section', { class: 'card', 'data-sec': 'jogo' },
@@ -266,6 +305,7 @@ export function startHost(root, env, { onExit = null } = {}) {
   function exitRoom() {
     if (clients.size && !confirm('Fechar a sala? Os jogadores conectados vão sair.')) return;
     exited = true;
+    driver?.stop();
     relay.close();
     onExit();
   }
@@ -286,7 +326,7 @@ export function startHost(root, env, { onExit = null } = {}) {
       area);
     const me = inMatch(HOST_ID) ? HOST_ID : null;
     g.render(area, g.view(match.state, me), {
-      me, shared: false,
+      me, shared: false, bots: new Set(robots.keys()),
       send(action) { if (me) { applyAction(HOST_ID, action); syncAll(); } },
     });
   }
