@@ -7,6 +7,7 @@
 import { h } from '../../ui/dom.js';
 import * as G from './rules.js';
 import { PAL, TEAM, drawPawn, drawDie, pixelCanvas, DIE_SIZE } from '../../ui/pixel.js';
+import { sfx } from '../../ui/sound.js';
 import {
   tableLayout, fitTable, setTurnColor, playerPanel as panel, spectatorPanel, btn, logBar,
 } from '../../ui/table.js';
@@ -52,7 +53,9 @@ export function render(root, state, ctx) {
   if (state.dice && state.dice.seq > ui.rollSeen) {
     ui.rollUntil = now + ROLL_MS;
     ui.rollSeen = state.dice.seq;
+    sfx('dice');
   }
+  playSounds(state, ctx);
   const rolling = now < ui.rollUntil;
   clearTimeout(ui.timer);
   if (rolling) ui.timer = setTimeout(() => rerender(), ui.rollUntil - now + 10);
@@ -87,6 +90,27 @@ export function render(root, state, ctx) {
   const layout = tableLayout({ shared: ctx.shared, sideA, sideB, center: board.canvas, log: logBar(state.log, RULES) });
   root.replaceChildren(layout);
   fitTable(layout, board.canvas, BW, board);
+}
+
+// Efeitos sonoros: tocam quando algo NOVO acontece no estado.
+function playSounds(state, ctx) {
+  const snd = ui.snd || (ui.snd = { anim: state.animSeq, phase: state.phase, ready: false });
+  if (!snd.ready || state.animSeq < snd.anim) { Object.assign(snd, { anim: state.animSeq, phase: state.phase, ready: true }); return; }
+  if (state.animSeq > snd.anim) {
+    const a = state.anim;
+    const delay = ui.rollUntil > performance.now() ? ui.rollUntil - performance.now() : 0;
+    setTimeout(() => sfx(a?.captured ? 'capture' : a?.kind === 'place' ? 'place' : 'move'), delay + 250);
+    if (a?.captured) setTimeout(() => sfx('levelup'), delay + 520);
+    snd.anim = state.animSeq;
+  }
+  if (state.phase !== snd.phase) {
+    if (state.phase === 'card') setTimeout(() => sfx('card'), 800);
+    if (state.phase === 'over') {
+      const won = state.winner != null && (ctx.shared || state.players[state.winner].id === ctx.me);
+      setTimeout(() => sfx(won ? 'win' : 'lose'), 500);
+    }
+    snd.phase = state.phase;
+  }
 }
 
 function rerender() {

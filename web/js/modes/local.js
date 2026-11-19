@@ -3,9 +3,10 @@
 // aparelho. O placar da sessão soma as vitórias por nome.
 import { h, mount, randomId, store } from '../ui/dom.js';
 import { apkDownloadUrl } from '../env.js';
-import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
-import { capacityText } from '../games/index.js';
-import { catalog, colorButton, gameArt, scoreboard, openScoreboard, recordResult } from '../ui/platform.js';
+import { leaveFocus, menuButton } from '../ui/fullscreen.js';
+import { ask } from '../ui/modal.js';
+import { capacityText, GAMES, defaultOptions } from '../games/index.js';
+import { catalog, colorButton, gameArt, scoreboard, openScoreboard, recordResult, optionsPicker } from '../ui/platform.js';
 import { COLOR_LABEL, firstFree } from '../ui/colors.js';
 import { BOT_LEVELS, levelLabel, hasBot } from '../bots/index.js';
 import { botDriver } from '../bots/driver.js';
@@ -27,10 +28,14 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
       onExit ? h('div', { class: 'toolbar' }, h('button', { class: 'px-btn small', onclick: onExit }, '< Menu')) : null,
       h('section', { class: 'card' },
         h('h2', {}, 'Escolha o jogo'),
-        catalog({ onPick: (g) => setupScreen(g) })),
+        catalog({
+          onPick: (g) => setupScreen(g),
+          // Jogos de mão escondida: aqui, só você contra robôs.
+          notes: Object.fromEntries(GAMES.filter((g) => g.noSharedScreen).map((g) => [g.id, 'Você x robôs'])),
+        })),
       rows.length ? h('div', { class: 'score-wrap' },
         scoreboard(rows, { title: 'Placar desta mesa' }),
-        h('button', { class: 'px-btn small', onclick: () => { if (confirm('Zerar o placar?')) { scores.clear(); saveScores(scores); catalogScreen(); } } }, 'Zerar placar')) : null,
+        h('button', { class: 'px-btn small', onclick: async () => { if (await ask('Zerar o placar desta mesa?')) { scores.clear(); saveScores(scores); catalogScreen(); } } }, 'Zerar placar')) : null,
       inApp ? null : apkBanner());
   }
 
@@ -39,12 +44,16 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
     const { minPlayers: min, maxPlayers: max } = game.meta;
     const pref = prefs[game.id] || {};
     let count = Math.min(max, Math.max(min, pref.count || min));
+    let opts = { ...defaultOptions(game), ...(pref.opts || {}) };
+    // Sem mesma tela (mão escondida): lugar 1 é você; os outros, robôs.
+    const solo = !!game.noSharedScreen;
     const seats = [];
     const fill = () => {
       const defaults = game.defaultColors(count);
       for (let i = 0; i < count; i++) {
         seats[i] ||= { name: pref.seats?.[i]?.name || '', color: pref.seats?.[i]?.color || null, bot: pref.seats?.[i]?.bot || null };
         if (!hasBot(game.id)) seats[i].bot = null;
+        if (solo) seats[i].bot = i === 0 ? null : (seats[i].bot || 'medio');
       }
       seats.length = count;
       // Cores únicas: quem não tem cor (ou repetiu) pega a padrão do assento.
@@ -55,7 +64,7 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
       });
     };
     const save = () => {
-      prefs[game.id] = { count, seats: seats.map((s) => ({ name: s.name, color: s.color, bot: s.bot })) };
+      prefs[game.id] = { count, opts, seats: seats.map((s) => ({ name: s.name, color: s.color, bot: s.bot })) };
       store.set(SETUP_KEY, JSON.stringify(prefs));
     };
 
@@ -64,7 +73,7 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
       const seatRows = seats.map((s, i) => {
         const others = seats.filter((_, j) => j !== i).map((o) => o.color);
         return h('div', { class: `seat team-${s.color}` },
-          h('span', { class: 'seat-color' }, `Jogador ${i + 1} · ${game.seatHint(count, i)}`),
+          h('span', { class: 'seat-color' }, [`Jogador ${i + 1}`, game.seatHint(count, i)].filter(Boolean).join(' · ')),
           h('div', { class: 'row' },
             colorButton({ value: s.color, taken: others, onPick: (c) => { s.color = c; save(); draw(); } }),
             s.bot
@@ -74,14 +83,17 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
                 'aria-label': `Nome do jogador ${i + 1}`,
                 oninput: (e) => { s.name = e.target.value; save(); },
               }),
-            hasBot(game.id) ? h('button', {
-              class: 'px-btn small who ' + (s.bot ? 'bot' : 'human'),
-              'aria-label': `Jogador ${i + 1}: ${s.bot ? `robô ${levelLabel(s.bot)}` : 'pessoa'}. Tocar para trocar.`,
-              onclick: () => {
-                s.bot = CONTROLLERS[(CONTROLLERS.indexOf(s.bot) + 1) % CONTROLLERS.length];
-                save(); draw();
-              },
-            }, s.bot ? levelLabel(s.bot) : 'Pessoa') : null));
+            solo && i === 0 ? h('span', { class: 'px-btn small who human' }, 'Você')
+              : hasBot(game.id) ? h('button', {
+                class: 'px-btn small who ' + (s.bot ? 'bot' : 'human'),
+                'aria-label': `Jogador ${i + 1}: ${s.bot ? `robô ${levelLabel(s.bot)}` : 'pessoa'}. Tocar para trocar.`,
+                onclick: () => {
+                  // Sem mesma tela, os outros lugares só alternam o nível do robô.
+                  const cycle = solo ? CONTROLLERS.slice(1) : CONTROLLERS;
+                  s.bot = cycle[(cycle.indexOf(s.bot) + 1) % cycle.length];
+                  save(); draw();
+                },
+              }, s.bot ? levelLabel(s.bot) : 'Pessoa') : null));
       });
       mount(root,
         h('div', { class: 'toolbar' }, h('button', { class: 'px-btn small', onclick: catalogScreen }, '< Jogos')),
@@ -95,14 +107,16 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
               'aria-label': `${n} jogadores`,
               onclick: () => { count = n; save(); draw(); },
             }, String(n)))) : null,
-          hasBot(game.id) ? h('p', { class: 'muted hint' }, 'Toque em "Pessoa" para trocar por um robô (Fácil, Médio ou Difícil).') : null,
+          optionsPicker(game, opts, (v) => { opts = v; save(); draw(); }),
+          solo ? h('p', { class: 'muted hint' }, 'Cada um vê só a própria mão: aqui é você contra robôs. Para jogar com amigos, use a sala Wi-Fi do app.')
+            : hasBot(game.id) ? h('p', { class: 'muted hint' }, 'Toque em "Pessoa" para trocar por um robô (Fácil, Médio ou Difícil).') : null,
           h('div', { class: 'seats' }, seatRows),
-          h('button', { class: 'px-btn primary wide', onclick: () => { save(); play(game, count, seats); } }, 'Começar')));
+          h('button', { class: 'px-btn primary wide', onclick: () => { save(); play(game, count, seats, opts); } }, 'Começar')));
     }
     draw();
   }
 
-  function play(game, count, seats) {
+  function play(game, count, seats, opts = {}) {
     const bots = new Map(); // id do jogador -> nível
     const sameLevel = {};
     const list = seats.slice(0, count).map((s) => {
@@ -121,7 +135,7 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
     const humans = list.filter((p) => !bots.has(p.id));
     // Uma pessoa só (contra robôs): tela "pessoal", com o seu lado embaixo.
     const solo = humans.length === 1;
-    let state = game.setup(list);
+    let state = game.setup(list, opts);
     let recorded = false;
     const area = h('section', { class: 'game' });
     const driver = botDriver({
@@ -163,10 +177,8 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
 
     mount(root,
       h('div', { class: 'toolbar' },
-        h('button', { class: 'px-btn small', onclick: () => { if (confirm('Sair da partida?')) { driver.stop(); setupScreen(game); } } }, '< Sair'),
-        h('span', { class: 'tools' },
-          h('button', { class: 'px-btn small', onclick: () => openScoreboard([...scores.values()], { title: 'Placar desta mesa' }) }, 'Placar'),
-          fullscreenButton())),
+        h('button', { class: 'px-btn small', onclick: async () => { if (await ask('Sair da partida?')) { driver.stop(); setupScreen(game); } } }, '< Sair'),
+        menuButton([{ label: 'Placar desta mesa', onClick: () => openScoreboard([...scores.values()], { title: 'Placar desta mesa' }) }])),
       area);
     draw();
   }

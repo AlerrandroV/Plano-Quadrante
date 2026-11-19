@@ -9,6 +9,7 @@ identidade visual.
 |---|---|---|
 | **Plano Quadrante** | 2 a 4 | sim |
 | **Damas** (regras brasileiras, 8×8) | 2 | sim |
+| **Dominó** (batida ou pontos) | 2 a 4 | sim (só na sala Wi-Fi ou você contra robôs) |
 
 O mesmo código roda de três jeitos, e **descobre sozinho** em qual está:
 
@@ -129,7 +130,10 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/ui/table.js          "mesa" comum: grade simétrica, painéis, registro, ajuda
   js/ui/platform.js       catálogo, seletor de cores, placar
   js/ui/colors.js         as 10 cores e a regra de cores únicas
-  js/bots/                robôs (damas: alfa-beta; Plano Quadrante: avaliação de perigo) + Web Worker
+  js/games/domino/rules.js, ui.js
+  js/bots/                robôs (damas: alfa-beta; Plano Quadrante: perigo; dominó: memória e bloqueio) + Web Worker
+  js/ui/modal.js          janelas do próprio jogo (no lugar de confirm/prompt/dialog do navegador)
+  js/ui/sound.js          efeitos sonoros 16 bits sintetizados (Web Audio, sem arquivos)
   js/modes/menu.js        menu do app (Mesma tela / Sala Wi-Fi)
   js/modes/local.js       mesma tela: catálogo → preparação → partida
   js/modes/host.js        sala: QR, jogo, quem joga/assiste, placar, autoridade
@@ -217,6 +221,50 @@ As simulações também mostraram algo sobre o Plano Quadrante: **perceber o
 perigo de ser capturado é a habilidade que mais pesa**. Ignorá-la em 1/3 das
 jogadas já faz perder ~80% das partidas, mesmo com a sorte dos dados.
 Esquecer o próprio bônus, sozinho, quase não muda o resultado.
+
+**Dominó** (`web/js/bots/domino.js`): o robô só enxerga a própria mão.
+- **Fácil:** joga qualquer peça que encaixe.
+- **Médio:** solta as carroças cedo, mantém variedade de números na mão e, no modo pontos, faz os pontos que estiverem à vista.
+- **Difícil:** tudo isso e mais:
+  - **Memória:** lembra quais números cada adversário não tem (porque comprou ou passou) e tenta trancá-lo.
+  - **Pontas difíceis:** conta quantas peças desconhecidas ainda servem nas pontas que vão ficar e prefere as pontas difíceis para o próximo.
+  - **Defesa:** no modo pontos, evita abrir pontos para o próximo jogador.
+
+Na batida, a sorte da distribuição pesa bastante (é uma rodada só). Mesmo
+assim, o Difícil vence o Fácil em ~68% das partidas e o Médio em ~61%. No
+modo pontos, o Médio vence o Fácil em ~80%.
+
+## Dominó
+
+Dominó duplo-seis (28 peças), de 2 a 4 jogadores, 7 peças para cada um.
+
+**Rodada**
+- **Monte:** com 2 ou 3 jogadores sobra o monte. Quem não tem peça que encaixe compra até poder jogar; com o monte vazio, passa a vez.
+- **Quem começa:** na primeira rodada, quem tem a maior carroça, jogando ela.
+- **Trancado:** se ninguém consegue jogar, vence quem tem menos pontos na mão.
+
+**Variações** (o mestre escolhe na aba *Jogo*):
+- **Batida:** vence quem descartar todas as peças da mão primeiro.
+- **Pontos:**
+  - Se a soma das pontas for múltiplo de 5 depois da sua jogada, você marca essa soma (carroça na ponta conta dobrado).
+  - Quem bate ganha os pontos das mãos dos outros, arredondados para o múltiplo de 5 mais próximo.
+  - Rodadas até alguém chegar a **100**.
+
+**Sem modo de mesma tela:** cada um vê só a própria mão, e o
+celular de quem joga recebe apenas as próprias peças (dos outros, só a
+quantidade). No site e na opção *Mesma tela* do app, o dominó é só **você
+contra robôs**. Para jogar com amigos, use a sala Wi-Fi.
+
+## Sons e janelas
+
+- **Efeitos sonoros 16 bits** nos três jogos:
+  - quais são: dados, peça pousando, captura, carta, promoção a dama, peça de dominó batendo, compra, pontos, vitória e derrota;
+  - são sintetizados na hora (Web Audio), então funcionam sem internet e não pesam no app;
+  - liga e desliga em *Menu → Som* (fica salvo no aparelho).
+- **Sem janelas nativas do navegador:** confirmações, nome, placar, ajuda,
+  cores e menu usam janelas do próprio jogo (`ui/modal.js`). O `confirm()`
+  e o `prompt()` do navegador nem aparecem na WebView do app Android (os
+  botões "Sair", "Desistir" e "Empate" não funcionavam lá por isso).
 
 ## Damas: regras brasileiras
 

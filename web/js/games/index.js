@@ -10,11 +10,18 @@
 //   view(state, playerId)     -> o que esse jogador vê (playerId null = espectador)
 //   activePlayers(state)      -> ids de quem joga agora
 //   outcome(state)            -> null | { winners: [ids] } (vazio = empate)
+//   pendingPlayers(state)     -> (opcional) quem precisa agir agora
+//
+// No registro: options (variações escolhidas antes da partida) e
+// noSharedScreen (jogos com mão escondida: nada de várias pessoas na
+// mesma tela; no modo local, só uma pessoa contra robôs).
 import * as pqRules from './plano-quadrante/rules.js';
 import * as pqUi from './plano-quadrante/ui.js';
 import * as damasRules from './damas/rules.js';
 import * as damasUi from './damas/ui.js';
-import { PAL, TEAM, drawPawn, drawDie, drawDisc } from '../ui/pixel.js';
+import * as dominoRules from './domino/rules.js';
+import * as dominoUi from './domino/ui.js';
+import { PAL, TEAM, drawPawn, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
 export const ART_W = 64;
 export const ART_H = 40;
@@ -42,7 +49,30 @@ export const GAMES = [
     seatHint: (n, i) => (i === 0 ? 'brancas, começa' : 'pretas'),
     art: artDamas,
   },
+  {
+    ...dominoRules,
+    render: dominoUi.render,
+    help: dominoUi.RULES,
+    id: 'domino',
+    name: 'Dominó',
+    kind: 'Peças · batida ou pontos',
+    spectators: true,
+    noSharedScreen: true,
+    options: dominoRules.OPTIONS,
+    seatHint: () => '',
+    art: artDomino,
+  },
 ];
+
+/** Valores padrão das opções de um jogo. */
+export function defaultOptions(game) {
+  return Object.fromEntries((game.options || []).map((o) => [o.id, o.default]));
+}
+
+/** Texto curto das opções escolhidas (ex.: "Pontos"). */
+export function optionsText(game, opts = {}) {
+  return (game.options || []).map((o) => o.choices.find((c) => c.id === (opts[o.id] ?? o.default))?.label).filter(Boolean).join(' · ');
+}
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;
@@ -93,4 +123,16 @@ function artDamas(g) {
       else if (c === 3) piece(c * cell, r * cell, 'branco', true);
     }
   }
+}
+
+function artDomino(g) {
+  g.fillStyle = '#1d4a3a'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#163a2d';
+  for (let y = 0; y < ART_H; y += 4) for (let x = (y / 4) % 2 * 2; x < ART_W; x += 4) g.fillRect(x, y, 1, 1);
+  // Uma fila de peças e duas peças "na mão", viradas.
+  drawTile(g, 2, 14, false, 6, 6);
+  drawTile(g, 26, 14, false, 6, 3);
+  drawTile(g, 50, 8, true, 3, 5);
+  drawTile(g, 6, 27, false, 1, 4, { back: true });
+  drawTile(g, 30, 27, false, 2, 2, { back: true });
 }

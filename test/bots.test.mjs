@@ -89,3 +89,30 @@ test('Plano Quadrante com 4: robôs de todos os níveis terminam a partida', () 
   }
   assert.equal(s.phase, 'over');
 });
+
+import * as DO from '../web/js/games/domino/rules.js';
+import * as bdo from '../web/js/bots/domino.js';
+
+function domino(levelA, levelB, mode, swap) {
+  let s = DO.setup(swap ? [P[1], P[0]] : P, { mode });
+  const lvl = { a: levelA, b: levelB };
+  for (let n = 0; n < 20000 && s.phase !== 'over'; n++) {
+    const id = s.phase === 'round' ? s.players[0].id : s.players[s.turn].id;
+    // O robô decide só com a "view" dele (sem ver a mão do outro).
+    const a = bdo.decide(DO.view(s, id), id, lvl[id]);
+    const next = DO.act(s, id, a);
+    assert.ok(next, `robô de dominó fez jogada ilegal: ${JSON.stringify(a)}`);
+    s = next;
+  }
+  assert.equal(s.phase, 'over');
+  return s.winner != null ? s.players[s.winner].id : 'empate';
+}
+
+test('dominó: robô joga só com a própria mão e os níveis se ordenam', () => {
+  let d = 0;
+  for (let i = 0; i < 200; i++) if (domino('dificil', 'facil', 'batida', i % 2) === 'a') d++;
+  assert.ok(d >= 110, `difícil venceu só ${d}/200 do fácil na batida`);
+  let m = 0;
+  for (let i = 0; i < 60; i++) if (domino('medio', 'facil', 'pontos', i % 2) === 'a') m++;
+  assert.ok(m >= 36, `médio venceu só ${m}/60 do fácil em pontos`);
+});

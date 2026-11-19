@@ -191,3 +191,65 @@ export function pixelCanvas(w, h, className = '') {
   ctx.imageSmoothingEnabled = false;
   return c;
 }
+
+// ------------------------------------------------------------- dominó
+// Peça de 12x24 (em pé) ou 24x12 (deitada): duas faces 10x10 com pontos 2x2.
+const PIP_POS = {
+  0: [],
+  1: [[4, 4]],
+  2: [[1, 1], [7, 7]],
+  3: [[1, 1], [4, 4], [7, 7]],
+  4: [[1, 1], [7, 1], [1, 7], [7, 7]],
+  5: [[1, 1], [7, 1], [4, 4], [1, 7], [7, 7]],
+  6: [[1, 1], [7, 1], [1, 4], [7, 4], [1, 7], [7, 7]],
+};
+export const TILE_W = 12;
+export const TILE_L = 24;
+const IVORY = '#f1ead6';
+const IVORY_D = '#c9bd9c';
+
+function face(ctx, x, y, n, rot) {
+  ctx.fillStyle = IVORY;
+  ctx.fillRect(x, y, 10, 10);
+  ctx.fillStyle = PAL.ink;
+  for (const [px, py] of PIP_POS[n] || []) {
+    // Faces "deitadas" giram 90° (o 2, o 3 e o 6 mudam de diagonal).
+    const [qx, qy] = rot ? [py, 8 - px] : [px, py];
+    ctx.fillRect(x + qx, y + qy, 2, 2);
+  }
+}
+
+/**
+ * Desenha uma peça. vertical: a em cima, b embaixo; horizontal: a à
+ * esquerda, b à direita. back = peça virada (escondida).
+ */
+export function drawTile(ctx, x, y, vertical, a, b, { back = false, glow = null, dim = false } = {}) {
+  const w = vertical ? TILE_W : TILE_L;
+  const hgt = vertical ? TILE_L : TILE_W;
+  ctx.globalAlpha = dim ? 0.45 : 1;
+  ctx.fillStyle = glow || PAL.ink;
+  ctx.fillRect(x, y, w, hgt);
+  if (back) {
+    ctx.fillStyle = '#3a3150';
+    ctx.fillRect(x + 1, y + 1, w - 2, hgt - 2);
+    ctx.fillStyle = '#5d4b84';
+    for (let i = 2; i < w - 2; i += 3) for (let j = 2; j < hgt - 2; j += 3) ctx.fillRect(x + i, y + j, 1, 1);
+    ctx.globalAlpha = 1;
+    return;
+  }
+  // Sombra inferior (dá volume) + faces + divisória.
+  ctx.fillStyle = IVORY_D;
+  ctx.fillRect(x + 1, y + 1, w - 2, hgt - 2);
+  if (vertical) {
+    face(ctx, x + 1, y + 1, a, false);
+    face(ctx, x + 1, y + 13, b, false);
+    ctx.fillStyle = PAL.ink;
+    ctx.fillRect(x + 2, y + 11, 8, 1);
+  } else {
+    face(ctx, x + 1, y + 1, a, true);
+    face(ctx, x + 13, y + 1, b, true);
+    ctx.fillStyle = PAL.ink;
+    ctx.fillRect(x + 11, y + 2, 1, 8);
+  }
+  ctx.globalAlpha = 1;
+}

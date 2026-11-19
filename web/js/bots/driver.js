@@ -75,6 +75,10 @@ function waitFor(gameId, state) {
     if (state.phase === 'bonus') return 800;
     return 1050; // depois da rolagem: dados girando (750 ms)
   }
+  if (gameId === 'domino') {
+    if (state.phase === 'round') return 4000; // tempo para ver o resultado da rodada
+    return 900;
+  }
   if (gameId === 'damas') {
     const segs = state.last ? state.last.path.length : 0;
     return 550 + segs * 190;

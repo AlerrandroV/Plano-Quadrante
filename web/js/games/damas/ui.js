@@ -6,6 +6,8 @@ import {
   tableLayout, fitTable, setTurnColor, playerPanel, spectatorPanel, btn, logBar,
 } from '../../ui/table.js';
 import * as D from './rules.js';
+import { ask } from '../../ui/modal.js';
+import { sfx } from '../../ui/sound.js';
 
 const CELL = 18; // pedra de 14 px com 2 px de casa escura em volta
 const M = 8;
@@ -48,6 +50,7 @@ export function render(root, state, ctx) {
   autoSelect(legal);
   board.update(state, flip, myTurn ? marksFor(state, legal) : [], (i) => onTap(state, ctx, legal, i));
   if (state.last) board.animate(state.last);
+  playSounds(state, ctx);
 
   setTurnColor(current.color);
   const controls = controlsPanel(state, ctx, { myTurn, legal, meIdx });
@@ -74,6 +77,29 @@ export function render(root, state, ctx) {
   const layout = tableLayout({ shared: ctx.shared, sideA, sideB, center: board.canvas, log: logBar(state.log, RULES) });
   root.replaceChildren(layout);
   fitTable(layout, board.canvas, BW, board);
+}
+
+// Efeitos sonoros: tocam quando algo NOVO acontece no estado.
+function playSounds(state, ctx) {
+  const snd = ui.snd || (ui.snd = { seq: state.moveSeq, phase: state.phase, ready: false });
+  if (!snd.ready || state.moveSeq < snd.seq) { Object.assign(snd, { seq: state.moveSeq, phase: state.phase, ready: true }); return; }
+  if (state.moveSeq > snd.seq && state.last) {
+    const l = state.last;
+    const steps = l.path.length;
+    // Um "toc" por pouso; captura no último salto; coroa se virou dama.
+    for (let i = 0; i < steps; i++) setTimeout(() => sfx(l.captures.length ? 'capture' : 'move'), i * 190 + 120);
+    const to = l.path[steps - 1];
+    if (!l.king && state.board[to]?.k) setTimeout(() => sfx('king'), steps * 190 + 200);
+    snd.seq = state.moveSeq;
+  }
+  if (state.phase !== snd.phase) {
+    if (state.phase === 'over') {
+      const me = state.players.findIndex((p) => p.id === ctx.me);
+      const won = state.winner != null && (ctx.shared || state.winner === me);
+      setTimeout(() => sfx(state.winner == null ? 'pass' : won ? 'win' : 'lose'), 600);
+    }
+    snd.phase = state.phase;
+  }
 }
 
 function rerender() {
@@ -198,8 +224,8 @@ function controlsPanel(state, ctx, { myTurn, legal, meIdx }) {
   }
 
   if (state.phase === 'play' && playing && state.drawOffer == null) {
-    buttons.push(btn('Empate', () => { if (confirm('Propor empate?')) send({ type: 'offer-draw' }); }, 'small'));
-    buttons.push(btn('Desistir', () => { if (confirm('Desistir da partida?')) send({ type: 'resign' }); }, 'small'));
+    buttons.push(btn('Empate', async () => { if (await ask('Propor empate?')) send({ type: 'offer-draw' }); }, 'small'));
+    buttons.push(btn('Desistir', async () => { if (await ask('Desistir da partida?')) send({ type: 'resign' }); }, 'small'));
   }
 
   return h('div', { class: 'pq-controls' }, h('div', { class: 'pq-ctl-inner' },

@@ -5,6 +5,7 @@ import { pixelCanvas, drawPawn, PAWN_W, PAWN_H } from './pixel.js';
 import { COLOR_ORDER, COLOR_LABEL } from './colors.js';
 import { GAMES, ART_W, ART_H, capacityText } from '../games/index.js';
 import { statIcon } from './table.js';
+import { showModal } from './modal.js';
 
 export function gameArt(game, cls = 'game-art') {
   const c = pixelCanvas(ART_W, ART_H, cls);
@@ -44,9 +45,8 @@ export function colorPicker({ value, taken = [], onPick, label = 'Cor das peças
         class: `swatch team-${c}` + (c === value ? ' on' : ''),
         role: 'radio', 'aria-checked': String(c === value),
         'aria-label': COLOR_LABEL[c] + (busy ? ' (já escolhida)' : ''),
-        title: COLOR_LABEL[c],
         disabled: busy,
-        onclick: () => onPick(c),
+        onclick: () => { onPick(c); },
       }, icon);
     }));
 }
@@ -54,17 +54,14 @@ export function colorPicker({ value, taken = [], onPick, label = 'Cor das peças
 /** Botão compacto com o peão na cor atual; abre a paleta numa janelinha. */
 export function colorButton({ value, taken = [], onPick, label = 'Cor das peças' }) {
   const open = () => {
-    document.getElementById('pq-colors')?.remove();
-    const dlg = h('dialog', { id: 'pq-colors', class: 'pq-dialog' },
-      h('h2', {}, label),
-      colorPicker({ value, taken, label, onPick: (c) => { dlg.close(); dlg.remove(); onPick(c); } }),
-      h('form', { method: 'dialog' }, h('button', { class: 'px-btn' }, 'Fechar')));
-    document.body.append(dlg);
-    dlg.showModal();
+    const m = showModal({
+      title: label,
+      content: [colorPicker({ value, taken, label, onPick: (c) => { m.close(); onPick(c); } })],
+    });
   };
   return h('button', {
     class: `color-btn team-${value}`, onclick: open, type: 'button',
-    'aria-label': `${label}: ${COLOR_LABEL[value]}. Tocar para trocar.`, title: 'Trocar cor',
+    'aria-label': `${label}: ${COLOR_LABEL[value]}. Tocar para trocar.`,
   }, pawnBadge(value));
 }
 
@@ -93,12 +90,7 @@ export function scoreboard(scores, { title = 'Placar da sala', empty = 'Ninguém
 
 /** Abre o placar numa janelinha (durante a partida). */
 export function openScoreboard(scores, opts) {
-  document.getElementById('pq-scores')?.remove();
-  const dlg = h('dialog', { id: 'pq-scores', class: 'pq-dialog' },
-    scoreboard(scores, opts),
-    h('form', { method: 'dialog' }, h('button', { class: 'px-btn primary' }, 'Fechar')));
-  document.body.append(dlg);
-  dlg.showModal();
+  showModal({ content: [scoreboard(scores, opts)], actions: [{ label: 'Fechar', primary: true }] });
 }
 
 /** Soma uma partida no placar (Map id -> {name,color,wins,games}). */
@@ -111,4 +103,25 @@ export function recordResult(scores, players, winners) {
     if (winners.includes(p.id)) row.wins += 1;
     scores.set(p.id, row);
   }
+}
+
+/**
+ * Opções de um jogo (ex.: dominó "Batida" ou "Pontos"), em botões.
+ * value: { [optionId]: choiceId }  onChange(novoValor)
+ */
+export function optionsPicker(game, value = {}, onChange = null) {
+  if (!game.options?.length) return null;
+  return h('div', { class: 'game-options' }, game.options.map((o) => {
+    const cur = value[o.id] ?? o.default;
+    const choice = o.choices.find((c) => c.id === cur);
+    return h('div', { class: 'game-option' },
+      h('div', { class: 'seg', role: 'group', 'aria-label': o.label },
+        h('span', { class: 'seg-label' }, o.label),
+        o.choices.map((c) => h('button', {
+          class: 'px-btn' + (c.id === cur ? ' primary' : ''), 'aria-pressed': String(c.id === cur),
+          disabled: !onChange,
+          onclick: () => onChange?.({ ...value, [o.id]: c.id }),
+        }, c.label))),
+      choice?.hint ? h('p', { class: 'muted option-hint' }, choice.hint) : null);
+  }));
 }

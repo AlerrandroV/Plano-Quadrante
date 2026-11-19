@@ -8,6 +8,7 @@
 // Cada jogo monta os painéis dos jogadores e o "centro" (normalmente o
 // canvas do tabuleiro) e chama tableLayout() + fitTable().
 import { h } from './dom.js';
+import { showModal } from './modal.js';
 import { PAL, TEAM, drawPawn, drawSprite, pixelCanvas, PAWN_W, PAWN_H } from './pixel.js';
 
 /** Monta a grade da partida. sideA/sideB: listas de painéis. */
@@ -94,7 +95,7 @@ export function spectatorPanel(controls) {
 }
 
 export function stat(icon, label, value) {
-  return h('span', { class: 'pq-stat', title: label, 'aria-label': `${label}: ${value}` },
+  return h('span', { class: 'pq-stat', 'aria-label': `${label}: ${value}` },
     statIcon(icon), h('b', {}, value));
 }
 
@@ -154,6 +155,28 @@ const ICONS = {
     '.KFFFFFK.',
     '..KKKKK..',
   ],
+  domino: [
+    '..KKKKK..',
+    '..KWWWK..',
+    '..KWKWK..',
+    '..KWWWK..',
+    '..KKKKK..',
+    '..KWKWK..',
+    '..KWWWK..',
+    '..KWKWK..',
+    '..KKKKK..',
+  ],
+  monte: [
+    '.........',
+    '.KKKKKKK.',
+    '.KFFFFFK.',
+    '.KKKKKKK.',
+    '.KFFFFFK.',
+    '.KKKKKKK.',
+    '.KFFFFFK.',
+    '.KKKKKKK.',
+    '.........',
+  ],
   trofeu: [
     'GGGGGGGGG',
     'GKGGGGGKG',
@@ -189,17 +212,15 @@ export function btn(label, onclick, cls = '', disabled = false) {
 export function logBar(lines, help) {
   const last = lines[lines.length - 1] || '';
   return h('div', { class: 'pq-log' },
-    h('p', { class: 'pq-log-line', title: lines.slice(-4).join('\n') }, last),
+    h('p', { class: 'pq-log-line' }, last),
     h('button', { class: 'px-btn small', onclick: () => openHelp(help), 'aria-label': 'Como jogar' }, '?'));
 }
 
 /** Janela "Como jogar". help = { title, items: [texto ou nós] } */
 export function openHelp(help) {
-  document.getElementById('pq-help')?.remove();
-  const dlg = h('dialog', { id: 'pq-help', class: 'pq-dialog' },
-    h('h2', {}, help.title || 'Como jogar'),
-    h('ul', {}, help.items.map((it) => h('li', {}, it))),
-    h('form', { method: 'dialog' }, h('button', { class: 'px-btn primary' }, 'Entendi')));
-  document.body.append(dlg);
-  dlg.showModal();
+  showModal({
+    title: help.title || 'Como jogar',
+    content: [h('ul', { class: 'help-list' }, help.items.map((it) => h('li', {}, it)))],
+    actions: [{ label: 'Entendi', primary: true }],
+  });
 }
