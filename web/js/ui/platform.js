@@ -107,21 +107,74 @@ export function recordResult(scores, players, winners) {
 
 /**
  * Opções de um jogo (ex.: dominó "Batida" ou "Pontos"), em botões.
- * value: { [optionId]: choiceId }  onChange(novoValor)
+ * value: { [optionId]: choiceId | [ids] (type 'flags') }  onChange(novoValor)
+ * showIf: { outraOpção: valor } mostra a opção só nesse caso.
  */
 export function optionsPicker(game, value = {}, onChange = null) {
   if (!game.options?.length) return null;
-  return h('div', { class: 'game-options' }, game.options.map((o) => {
-    const cur = value[o.id] ?? o.default;
+  const val = (o) => value[o.id] ?? o.default;
+  const shown = (o) => !o.showIf || Object.entries(o.showIf).every(([k, v]) => val(game.options.find((x) => x.id === k) || { id: k }) === v);
+  const rows = [];
+  for (const o of game.options.filter(shown)) {
+    if (o.type === 'flags') {
+      // Liga/desliga (várias ao mesmo tempo), ex.: regras de rua. Abre numa
+      // janelinha e fica na mesma linha da opção de que depende, para a
+      // tela de preparação continuar cabendo.
+      const on = val(o);
+      const names = o.choices.filter((c) => on.includes(c.id)).map((c) => c.label);
+      const edit = () => openFlags(o, on, onChange ? (list) => onChange({ ...value, [o.id]: list }) : null);
+      const hint = h('p', { class: 'muted option-hint' }, names.length ? names.join(' · ') : 'Nenhuma: igual às oficiais.');
+      const parent = rows.find((r) => o.showIf && r.id in o.showIf);
+      if (parent) {
+        // O próprio botão da escolha (ex.: "De rua") mostra quantas valem e
+        // abre a janelinha ao ser tocado de novo.
+        const b = parent.buttons[o.showIf[parent.id]];
+        b.textContent = `${b.textContent} (${on.length})`;
+        b.setAttribute('aria-label', `${o.label}: ${on.length} de ${o.choices.length} regras. Tocar para escolher.`);
+        b.onclick = edit;
+        b.disabled = false;
+        parent.hint?.remove();
+        parent.el.append(hint);
+      } else {
+        const open = h('button', { class: 'px-btn flags-open', type: 'button', onclick: edit }, `${on.length}/${o.choices.length} >`);
+        rows.push({ id: o.id, el: h('div', { class: 'game-option' }, h('div', { class: 'seg', role: 'group', 'aria-label': o.label }, h('span', { class: 'seg-label' }, o.label), open), hint) });
+      }
+      continue;
+    }
+    const cur = val(o);
     const choice = o.choices.find((c) => c.id === cur);
-    return h('div', { class: 'game-option' },
-      h('div', { class: 'seg', role: 'group', 'aria-label': o.label },
-        h('span', { class: 'seg-label' }, o.label),
-        o.choices.map((c) => h('button', {
-          class: 'px-btn' + (c.id === cur ? ' primary' : ''), 'aria-pressed': String(c.id === cur),
-          disabled: !onChange,
-          onclick: () => onChange?.({ ...value, [o.id]: c.id }),
-        }, c.label))),
-      choice?.hint ? h('p', { class: 'muted option-hint' }, choice.hint) : null);
-  }));
+    const buttons = {};
+    const seg = h('div', { class: 'seg', role: 'group', 'aria-label': o.label },
+      h('span', { class: 'seg-label' }, o.label),
+      o.choices.map((c) => (buttons[c.id] = h('button', {
+        class: 'px-btn' + (c.id === cur ? ' primary' : ''), 'aria-pressed': String(c.id === cur),
+        disabled: !onChange,
+        onclick: () => {
+          onChange?.({ ...value, [o.id]: c.id });
+          // Escolheu algo que tem opções liga/desliga: já abre a janelinha.
+          const sub = game.options.find((x) => x.type === 'flags' && x.showIf?.[o.id] === c.id);
+          if (sub && onChange) openFlags(sub, value[sub.id] ?? sub.default, (list) => onChange({ ...value, [o.id]: c.id, [sub.id]: list }));
+        },
+      }, c.label))));
+    const hint = choice?.hint ? h('p', { class: 'muted option-hint' }, choice.hint) : null;
+    rows.push({ id: o.id, seg, hint, buttons, el: h('div', { class: 'game-option' }, seg, hint) });
+  }
+  return h('div', { class: 'game-options' }, rows.map((r) => r.el));
+}
+
+/** Janela de opções liga/desliga. onDone(lista) ou null (só leitura). */
+function openFlags(o, value, onDone) {
+  const on = new Set(value);
+  const list = h('div', { class: 'flag-list' });
+  const draw = () => list.replaceChildren(...o.choices.map((c) => h('button', {
+    class: 'px-btn flag' + (on.has(c.id) ? ' primary' : ''), type: 'button', 'aria-pressed': String(on.has(c.id)),
+    disabled: !onDone,
+    onclick: () => { if (on.has(c.id)) on.delete(c.id); else on.add(c.id); draw(); },
+  }, h('span', { class: 'flag-box' }, on.has(c.id) ? 'X' : ''), h('span', { class: 'flag-text' }, h('b', {}, c.label), c.hint ? h('small', {}, c.hint) : null))));
+  draw();
+  showModal({
+    title: o.label,
+    content: [list],
+    actions: onDone ? [{ label: 'Pronto', primary: true, onClick: () => onDone(o.choices.map((c) => c.id).filter((id) => on.has(id))) }] : [],
+  });
 }

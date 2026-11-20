@@ -72,6 +72,17 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
       fill();
       const seatRows = seats.map((s, i) => {
         const others = seats.filter((_, j) => j !== i).map((o) => o.color);
+        if (solo && i > 0) {
+          // Você x robôs: cada robô ocupa pouco (cor + nível), lado a lado.
+          return h('div', { class: `seat compact team-${s.color}` },
+            h('div', { class: 'row' },
+              colorButton({ value: s.color, taken: others, onPick: (c) => { s.color = c; save(); draw(); } }),
+              h('button', {
+                class: 'px-btn small who bot',
+                'aria-label': `Jogador ${i + 1}: robô ${levelLabel(s.bot)}. Tocar para trocar.`,
+                onclick: () => { const cycle = CONTROLLERS.slice(1); s.bot = cycle[(cycle.indexOf(s.bot) + 1) % cycle.length]; save(); draw(); },
+              }, levelLabel(s.bot))));
+        }
         return h('div', { class: `seat team-${s.color}` },
           h('span', { class: 'seat-color' }, [`Jogador ${i + 1}`, game.seatHint(count, i)].filter(Boolean).join(' · ')),
           h('div', { class: 'row' },
@@ -100,7 +111,7 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
         h('section', { class: 'card setup-card' },
           h('div', { class: 'setup-head' }, gameArt(game, 'game-art small'),
             h('div', {}, h('h2', {}, game.name), h('p', { class: 'muted' }, capacityText(game)))),
-          min !== max ? h('div', { class: 'seg', role: 'group', 'aria-label': 'Número de jogadores' },
+          min !== max ? h('div', { class: 'seg' + (max - min > 2 ? ' many' : ''), role: 'group', 'aria-label': 'Número de jogadores' },
             h('span', { class: 'seg-label', 'aria-hidden': 'true' }, 'Jogadores'),
             Array.from({ length: max - min + 1 }, (_, k) => min + k).map((n) => h('button', {
               class: 'px-btn' + (n === count ? ' primary' : ''), 'aria-pressed': String(n === count),
@@ -108,9 +119,9 @@ export function startLocal(root, { inApp = false, onExit = null } = {}) {
               onclick: () => { count = n; save(); draw(); },
             }, String(n)))) : null,
           optionsPicker(game, opts, (v) => { opts = v; save(); draw(); }),
-          solo ? h('p', { class: 'muted hint' }, 'Cada um vê só a própria mão: aqui é você contra robôs. Para jogar com amigos, use a sala Wi-Fi do app.')
+          solo ? h('p', { class: 'muted hint' }, 'Você x robôs. Com amigos: sala Wi-Fi.')
             : hasBot(game.id) ? h('p', { class: 'muted hint' }, 'Toque em "Pessoa" para trocar por um robô (Fácil, Médio ou Difícil).') : null,
-          h('div', { class: 'seats' }, seatRows),
+          h('div', { class: 'seats' + (solo ? ' bots' : '') }, seatRows),
           h('button', { class: 'px-btn primary wide', onclick: () => { save(); play(game, count, seats, opts); } }, 'Começar')));
     }
     draw();

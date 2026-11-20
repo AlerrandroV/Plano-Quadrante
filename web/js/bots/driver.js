@@ -51,14 +51,19 @@ export function botDriver({ gameId, bots, getState, apply }) {
     if (!state) return;
     const game = getGame(gameId);
     const ids = game.pendingPlayers ? game.pendingPlayers(state) : game.activePlayers(state);
-    const botId = ids.find((id) => bots.has(id));
-    if (!botId) return;
+    const botIds = ids.filter((id) => bots.has(id));
+    if (!botIds.length) return;
     const v = version;
     timer = setTimeout(async () => {
-      // O robô vê só o que um jogador veria (importante em jogos com cartas escondidas).
-      const action = await think(gameId, game.view(state, botId), botId, bots.get(botId));
-      if (stopped || v !== version || !action) return;
-      apply(botId, action);
+      // Pergunta a cada robô que pode agir (na ordem); o primeiro que tiver
+      // algo a fazer joga. Ex.: na Última Carta, qualquer um pode "pegar"
+      // quem não gritou ou cortar fora da vez.
+      for (const botId of botIds) {
+        // O robô vê só o que um jogador veria (importante em jogos com cartas escondidas).
+        const action = await think(gameId, game.view(state, botId), botId, bots.get(botId));
+        if (stopped || v !== version) return;
+        if (action) { apply(botId, action); return; }
+      }
     }, waitFor(gameId, state));
   }
 
@@ -78,6 +83,12 @@ function waitFor(gameId, state) {
   if (gameId === 'domino') {
     if (state.phase === 'round') return 4000; // tempo para ver o resultado da rodada
     return 900;
+  }
+  if (gameId === 'ultima-carta') {
+    if (state.phase === 'round') return 4000;
+    if (state.vulnerable != null) return 1300; // dá tempo de a pessoa gritar ou pegar
+    if (state.phase === 'color' || state.phase === 'challenge') return 900;
+    return 800;
   }
   if (gameId === 'damas') {
     const segs = state.last ? state.last.path.length : 0;

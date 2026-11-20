@@ -21,6 +21,9 @@ import * as damasRules from './damas/rules.js';
 import * as damasUi from './damas/ui.js';
 import * as dominoRules from './domino/rules.js';
 import * as dominoUi from './domino/ui.js';
+import * as ucRules from './ultima-carta/rules.js';
+import * as ucUi from './ultima-carta/ui.js';
+import { drawCard } from './ultima-carta/cards.js';
 import { PAL, TEAM, drawSpider, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
 export const ART_W = 128; // 2x
@@ -62,6 +65,19 @@ export const GAMES = [
     seatHint: () => '',
     art: artDomino,
   },
+  {
+    ...ucRules,
+    render: ucUi.render,
+    help: ucUi.RULES,
+    id: 'ultima-carta',
+    name: 'Última Carta',
+    kind: 'Cartas · oficiais ou de rua',
+    spectators: true,
+    noSharedScreen: true,
+    options: ucRules.OPTIONS,
+    seatHint: () => '',
+    art: artCartas,
+  },
 ];
 
 /** Valores padrão das opções de um jogo. */
@@ -71,7 +87,12 @@ export function defaultOptions(game) {
 
 /** Texto curto das opções escolhidas (ex.: "Pontos"). */
 export function optionsText(game, opts = {}) {
-  return (game.options || []).map((o) => o.choices.find((c) => c.id === (opts[o.id] ?? o.default))?.label).filter(Boolean).join(' · ');
+  const val = (o) => opts[o.id] ?? o.default;
+  return (game.options || []).filter((o) => !o.showIf || Object.entries(o.showIf).every(([k, v]) => val(game.options.find((x) => x.id === k) || { id: k }) === v))
+    .map((o) => (o.type === 'flags'
+      ? `${val(o).length} ${val(o).length === 1 ? 'regra' : 'regras'}`
+      : o.choices.find((c) => c.id === val(o))?.label))
+    .filter(Boolean).join(' · ');
 }
 
 // Ids antigos (salas e preferências salvas antes de o jogo mudar de nome).
@@ -145,4 +166,19 @@ function artDomino(g) {
   drawTile(g, 100, 10, true, 3, 5);
   drawTile(g, 14, 54, false, 1, 4, { back: true });
   drawTile(g, 64, 54, false, 2, 2, { back: true });
+}
+
+function artCartas(g) {
+  g.fillStyle = '#2a2350'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#221c42';
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
+  // Leque de cartas: monte virado, um número, um Pula e um Coringa +4.
+  const C = ucRules.CARDS;
+  const find = (c, k, v) => C.findIndex((x) => x.c === c && x.k === k && (v == null || x.v === v));
+  drawCard(g, 6, 22, 0, { back: true });
+  drawCard(g, 4, 20, 0, { back: true });
+  drawCard(g, 42, 10, find('chama', 'n', 7));
+  drawCard(g, 62, 18, find('gota', 'pula'));
+  drawCard(g, 82, 26, find('folha', 'n', 3));
+  drawCard(g, 96, 8, find(null, 'mais4'));
 }
