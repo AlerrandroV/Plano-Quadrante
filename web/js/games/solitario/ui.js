@@ -61,15 +61,16 @@ export function render(root, state, ctx) {
   ui.last = { root, state, ctx };
   if (DEBUG) window.__pq = { state, ctx, layout: () => layout(state), SIZE };
   if (!ui.board) ui.board = new Board();
-  if (ui.sel && !R.pick(state, ui.sel)) ui.sel = null;
-  ui.board.update(state, ui.sel ? R.destinations(state, ui.sel) : [], (hit) => onTap(state, ctx, hit));
+  const mine = state.players[0].id === ctx.me; // quem assiste não mexe
+  if (!mine || (ui.sel && !R.pick(state, ui.sel))) ui.sel = null;
+  ui.board.update(state, ui.sel ? R.destinations(state, ui.sel) : [], mine ? (hit) => onTap(state, ctx, hit) : null);
   playSounds(state);
   const p = state.players[0];
   setTurnColor(p.color);
   const n = state.found.reduce((t, f) => t + f.length, 0);
-  const controls = controlsPanel(state, ctx);
+  const controls = mine ? controlsPanel(state, ctx) : watchPanel(state);
   const panel = playerPanel({
-    color: p.color, name: p.name, me: true, controls,
+    color: p.color, name: p.name, me: mine, controls,
     turn: state.phase === 'play',
     tags: state.phase === 'over' && state.won ? [{ text: 'VENCEU', kind: 'win' }] : [],
     stats: [{ icon: 'trofeu', label: 'Cartas nas fundações', value: `${n}/52` }, { icon: 'board', label: 'Jogadas', value: state.moves }],
@@ -124,6 +125,14 @@ function playSounds(state) {
     else if (k === 'win') setTimeout(() => sfx('win'), 200);
   }
   snd.seq = state.seq;
+}
+
+/** Quem assiste: só acompanha. */
+function watchPanel(state) {
+  const p = state.players[0];
+  const title = state.phase === 'over' ? (state.won ? `${p.name} venceu!` : `${p.name} desistiu.`) : `${p.name} está jogando`;
+  return h('div', { class: 'pq-controls' }, h('div', { class: 'pq-ctl-inner so-ctl' },
+    h('div', { class: 'pq-message' }, h('strong', { class: 'pq-title' }, title), h('p', {}, 'Você está assistindo.'))));
 }
 
 function controlsPanel(state, ctx) {

@@ -12,6 +12,9 @@ identidade visual.
 | **Damas** (regras brasileiras, 8×8) | 2 | sim |
 | **Dominó** (batida ou pontos) | 2 a 4 | sim (só na sala Wi-Fi ou você contra robôs) |
 | **Última Carta** (cartas; regras oficiais ou de rua) | 2 a 6 | sim (só na sala Wi-Fi ou você contra robôs) |
+| **Pife** (tradicional ou regras da casa) | 2 a 6 | sim (só na sala Wi-Fi ou você contra robôs) |
+| **Poker** (Texas Hold'em) | 2 a 8 | sim (só na sala Wi-Fi ou você contra robôs) |
+| **Solitário** (paciência; compra 1, 2 ou 3) | 1 | sim |
 
 O mesmo código roda de três jeitos, e **descobre sozinho** em qual está:
 
@@ -137,6 +140,10 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/ui/colors.js         as 10 cores e a regra de cores únicas
   js/games/domino/rules.js, ui.js
   js/games/ultima-carta/rules.js, ui.js, cards.js (cartas em pixel art), fx.js (efeitos)
+  js/games/pife/rules.js, ui.js
+  js/games/poker/rules.js, ui.js
+  js/games/solitario/rules.js, ui.js
+  js/ui/cards52.js        baralho francês em pixel art (Pife, Poker, Solitário)
   js/bots/                robôs (damas: alfa-beta; Domínio da Teia: perigo; dominó: memória e bloqueio; Última Carta: ataque e memória de cores) + Web Worker
   js/ui/modal.js          janelas do próprio jogo (no lugar de confirm/prompt/dialog do navegador)
   js/modes/menu.js        menu do app: Mesma tela / Criar sala / Entrar numa sala (código ou salas na rede)
@@ -252,6 +259,20 @@ modo pontos, o Médio vence o Fácil em ~80%.
 É um jogo de muita sorte: o Médio vence o Fácil em ~63% das partidas, o
 Difícil vence o Médio em ~56% e o Fácil em ~68% (simulação, 2 jogadores).
 
+**Pife** (`web/js/bots/pife.js`): o robô só enxerga a própria mão e o descarte.
+- **Fácil:** guarda os jogos prontos, mas descarta meio ao acaso e quase não pega do descarte.
+- **Médio:** conta jogos prontos e "pares" (duplas que viram jogo com mais uma carta) e descarta o que menos ajuda.
+- **Difícil:** pesa cada par pelas cartas que ainda podem sair (as do descarte já eram) e não descarta o que combina com o que o próximo já pegou do descarte.
+
+Simulação (2 jogadores): Médio vence o Fácil em ~62%; Difícil vence o Fácil em ~80% e o Médio em ~53% (o pife tem muita sorte).
+
+**Poker** (`web/js/bots/poker.js`): a força da mão vem de simulações (Monte Carlo): o robô sorteia as cartas que faltam centenas de vezes e conta quantas vezes venceria.
+- **Fácil:** poucas simulações e muito "achismo": paga demais, desiste à toa.
+- **Médio:** compara a chance de vencer com o preço de pagar (pot odds) e aposta quando está forte.
+- **Difícil:** mais simulações; aposta conforme a força, semi-blefa, desconfia de aposta grande (desconta da chance) e só entra em guerra de aumentos com mão muito forte.
+
+Simulação (mano a mano, 1000 fichas): Médio vence o Fácil em ~88%; Difícil vence o Médio em ~62% e o Fácil em ~82%.
+
 ## Dominó
 
 Dominó duplo-seis (28 peças), de 2 a 4 jogadores, 7 peças para cada um.
@@ -308,6 +329,43 @@ de cartas só sobe quando cada uma chega. Os robôs esperam a animação acabar.
 Como o dominó, **não tem modo de mesma tela**: cada celular recebe só a
 própria mão. Quem jogou um +4 também não revela se tinha a cor (só o
 servidor sabe, para julgar o desafio).
+
+## Pife
+
+Dois baralhos (104 cartas), de 2 a 6 jogadores, 9 cartas para cada.
+
+- **Na vez:** compre 1 carta (do monte ou a de cima do descarte) e descarte 1. Quem pegou do descarte não pode descartar a mesma carta.
+- **Bater:** formar 3 jogos de 3 cartas com as 9 e descartar a 10ª.
+  - **Trinca:** 3 cartas do mesmo valor, de naipes diferentes.
+  - **Sequência:** 3 cartas seguidas do mesmo naipe (A-2-3 e Q-K-A valem; K-A-2 não).
+- **Caixas:** a mão fica numa caixa de 9 lugares e, embaixo, 3 caixas de 3 lugares para montar os jogos. Toque numa carta e depois noutro lugar para mover ou trocar. As cartas começam em ordem: A, 2-10, J, Q, K; Ouros, Paus, Copas, Espadas. A caixa de baixo fica verde quando o jogo fecha. Com as 3 caixas cheias, aparece **Bater!**, e a carta que sobrou em cima é o descarte.
+
+**Regras da casa** (opção *Da casa*, cada uma liga e desliga):
+- **Com melé:** entram 4 curingas (o melé). Ele vale qualquer carta, um por jogo.
+- **Bater de naipe:** as 9 cartas do mesmo naipe batem; o melé vale qualquer naipe.
+- **Mão sem par:** se as 9 cartas recebidas não formam nem um par, bate de cara. Par aqui é valor repetido ou dupla do mesmo naipe que possa virar sequência (seguidas ou com um buraco, ex.: 5 e 7).
+- **Choque:** anunciou que bateu sem ter batido? "Deu choque": a partir daí só pode bater com carta comprada do **monte**, não do descarte.
+
+A opção *Tradicional* usa só as regras básicas, sem melé.
+
+## Poker
+
+Texas Hold'em sem limite, de 2 a 8 jogadores.
+
+- **Blinds:** o botão (D) gira a cada mão e os dois seguintes põem o small e o big blind. No mano a mano, o botão é o small blind. Os blinds sobem a cada 10 ou 5 mãos, ou ficam fixos.
+- **Cartas:** cada um recebe 2 fechadas; 5 abertas vão para a mesa (flop 3, turn 1, river 1). Vale a melhor mão de 5 entre as 7.
+- **Na vez:** desistir, passar, pagar, apostar ou aumentar (no mínimo o último aumento) ou all-in. O painel de aumento tem atalhos: mínimo, ½ pote, pote e tudo.
+- **Showdown:** quem chega até o fim mostra as cartas (só essas são enviadas aos outros celulares). All-in com menos fichas cria **potes paralelos**: cada um só disputa o que cobriu. Empate divide o pote.
+- **Fim:** quem fica sem fichas sai. Vence quem ficar com todas, ou quem tiver mais depois de 20 mãos (opção).
+
+## Solitário
+
+A paciência clássica (Klondike), para 1 jogador; na sala Wi-Fi, os outros assistem.
+
+- **Objetivo:** levar as 52 cartas para as 4 fundações, uma por naipe, do Ás ao Rei.
+- **Colunas:** carta sobre outra de cor diferente e valor 1 acima; dá para mover uma sequência aberta inteira; coluna vazia só recebe Rei.
+- **Níveis:** o monte tira **1** carta por vez no Fácil, **2** no Médio e **3** no Difícil (só a de cima do descarte vale). O descarte volta para o monte sem limite.
+- **Toque inteligente:** toque numa carta e ela vai sozinha para a fundação ou para o único lugar possível; se couber em mais de um lugar, ela fica marcada e você toca no destino. Tem **Desfazer** e **Recolher**.
 
 ## Convites e app com app
 

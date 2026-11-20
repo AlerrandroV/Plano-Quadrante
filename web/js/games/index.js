@@ -152,7 +152,8 @@ export function getGame(id) {
 
 export function capacityText(game) {
   const { minPlayers: a, maxPlayers: b } = game.meta;
-  return a === b ? `${a} jogadores` : `${a} a ${b} jogadores`;
+  if (a === b) return a === 1 ? '1 jogador' : `${a} jogadores`;
+  return `${a} a ${b} jogadores`;
 }
 
 // ------------------------------------------------------- ilustrações
