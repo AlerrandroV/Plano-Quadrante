@@ -60,7 +60,7 @@ test('damas: Médio vence o Fácil e o Difícil vence o Médio (maioria)', () =>
   assert.ok(m >= 6, `médio venceu só ${m}/10 do fácil`);
   let d = 0;
   let lost = 0;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     const r = damas('dificil', 'medio', i % 2, { timeMs: 60 });
     if (r === 'a') d++;
     if (r === 'b') lost++;
@@ -72,9 +72,10 @@ test('Plano Quadrante: robôs só fazem jogadas válidas e os níveis se ordenam
   let m = 0;
   for (let i = 0; i < 60; i++) if (pq('medio', 'facil', i % 2) === 'a') m++;
   assert.ok(m >= 39, `médio venceu só ${m}/60 do fácil`);
+  // ~63% esperado: com 120 partidas, exigir 61 (51%) dá chance de falha por azar < 0,5%.
   let d = 0;
-  for (let i = 0; i < 60; i++) if (pq('dificil', 'medio', i % 2) === 'a') d++;
-  assert.ok(d >= 31, `difícil venceu só ${d}/60 do médio`);
+  for (let i = 0; i < 120; i++) if (pq('dificil', 'medio', i % 2) === 'a') d++;
+  assert.ok(d >= 61, `difícil venceu só ${d}/120 do médio`);
 });
 
 test('Plano Quadrante com 4: robôs de todos os níveis terminam a partida', () => {

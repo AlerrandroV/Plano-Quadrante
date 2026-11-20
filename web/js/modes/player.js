@@ -8,16 +8,48 @@ import { askText } from '../ui/modal.js';
 import { getGame, capacityText, optionsText } from '../games/index.js';
 import { colorPicker, gameArt, scoreboard, openScoreboard, pawnBadge } from '../ui/platform.js';
 import { isColor } from '../ui/colors.js';
+import { isInApp, isAndroidBrowser, appBridge, openInAppUrl, apkDownloadUrl } from '../env.js';
 
-export function startPlayer(root) {
+export function startPlayer(root, env = {}) {
   // O id fica salvo: se a tela apagar ou a página recarregar,
   // o jogador volta para o mesmo lugar na partida.
   let id = store.get('pq-id');
   if (!id) { id = randomId(); store.set('pq-id', id); }
 
   const saved = store.get('pq-name');
-  if (saved) join(saved);
-  else askName();
+  const start = () => (saved ? join(saved) : askName());
+
+  // Convite aberto no navegador de um Android: oferece o app antes de entrar.
+  const params = new URLSearchParams(location.search);
+  let chose = false;
+  try { chose = sessionStorage.getItem('pq-invite') === 'navegador'; } catch { /* privado */ }
+  if (isAndroidBrowser() && !chose && !params.has('navegador')) inviteScreen(params.has('semapp'));
+  else start();
+
+  function inviteScreen(noApp) {
+    const room = `${location.origin}/`;
+    const back = `${location.origin}/?semapp=1`;
+    const apk = env.server?.apk ? '/plano-quadrante.apk' : apkDownloadUrl().apk;
+    const browser = () => {
+      try { sessionStorage.setItem('pq-invite', 'navegador'); } catch { /* privado */ }
+      start();
+    };
+    mount(root, h('section', { class: 'card invite-choice' },
+      h('h2', {}, 'Convite para jogar'),
+      h('p', {}, 'Você foi chamado para uma sala de jogos aqui pertinho.'),
+      noApp ? h('p', { class: 'warn' }, 'Não achamos o app neste celular. Baixe abaixo ou continue no navegador.') : null,
+      h('a', { class: 'menu-choice', href: openInAppUrl(room, back) },
+        h('span', { class: 'menu-title' }, 'Abrir no app'),
+        h('span', { class: 'menu-text' }, 'Já tenho o app Plano Quadrante instalado.')),
+      h('a', { class: 'menu-choice alt', href: apk, download: 'plano-quadrante.apk' },
+        h('span', { class: 'menu-title' }, 'Baixar app Android'),
+        h('span', { class: 'menu-text' }, env.server?.apk
+          ? 'Direto do celular de quem criou a sala, sem precisar de internet. Depois de instalar, volte aqui e toque em "Abrir no app".'
+          : 'Depois de instalar, volte aqui e toque em "Abrir no app".')),
+      h('button', { class: 'menu-choice plain', onclick: browser },
+        h('span', { class: 'menu-title' }, 'Continuar no navegador'),
+        h('span', { class: 'menu-text' }, 'Sem instalar nada.'))));
+  }
 
   function askName() {
     const input = h('input', { type: 'text', maxLength: 20, placeholder: 'Seu nome', autocomplete: 'nickname', 'aria-label': 'Seu nome', required: true });
@@ -125,6 +157,8 @@ export function startPlayer(root) {
         menuButton([
           { label: 'Trocar meu nome', onClick: rename },
           { label: 'Placar da sala', onClick: () => openScoreboard(scores) },
+          // Dentro do app, entrando na sala de outro celular: voltar ao próprio menu.
+          ...(isInApp() ? [{ label: 'Sair da sala (voltar ao app)', onClick: () => { relay.close(); appBridge().home(); } }] : []),
         ])),
       area);
   }

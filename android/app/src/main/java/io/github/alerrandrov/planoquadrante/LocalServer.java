@@ -6,6 +6,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import java.security.SecureRandom;
 
 import fi.iki.elonen.NanoWSD;
 
@@ -44,15 +47,29 @@ public class LocalServer extends NanoWSD {
 
     private final AssetManager assets;
     private final int port;
+    private final String apkPath; // o próprio APK instalado (para quem quiser baixar)
+    private final String code = String.format("%04d", new SecureRandom().nextInt(10000));
+    private final RoomBeacon beacon;
     private final Object lock = new Object();
     private final Map<String, PlayerSocket> players = new ConcurrentHashMap<>();
     private HostSocket host;
     private ScheduledExecutorService pinger;
 
     public LocalServer(AssetManager assets, int port) {
+        this(assets, port, null);
+    }
+
+    public LocalServer(AssetManager assets, int port, String apkPath) {
         super(port);
         this.assets = assets;
         this.port = port;
+        this.apkPath = apkPath;
+        this.beacon = new RoomBeacon(code, port);
+    }
+
+    /** Código de 4 dígitos da sala (aparece na sala e é anunciado na rede). */
+    public String getCode() {
+        return code;
     }
 
     public int getPortNumber() {
@@ -67,6 +84,7 @@ public class LocalServer extends NanoWSD {
     }
 
     public void stopServer() {
+        beacon.stop();
         if (pinger != null) pinger.shutdownNow();
         stop();
     }
@@ -76,6 +94,20 @@ public class LocalServer extends NanoWSD {
     @Override
     protected Response serveHttp(IHTTPSession session) {
         String uri = session.getUri();
+        if ("/plano-quadrante.apk".equals(uri)) {
+            // O app que está rodando entrega a si mesmo: dá para instalar pelo
+            // hotspot do mestre, sem internet.
+            if (apkPath == null) return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "404");
+            try {
+                File f = new File(apkPath);
+                Response r = newFixedLengthResponse(Response.Status.OK, "application/vnd.android.package-archive",
+                        new FileInputStream(f), f.length());
+                r.addHeader("Content-Disposition", "attachment; filename=\"plano-quadrante.apk\"");
+                return r;
+            } catch (IOException e) {
+                return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "404");
+            }
+        }
         if ("/pq-info.json".equals(uri)) {
             Response r = newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", info().toString());
             r.addHeader("Cache-Control", "no-store");
@@ -103,6 +135,8 @@ public class LocalServer extends NanoWSD {
         try {
             o.put("server", "plano-quadrante");
             o.put("app", true);
+            o.put("code", code);
+            o.put("apk", apkPath != null);
             o.put("port", port);
             JSONArray urls = new JSONArray();
             for (String ip : lanAddresses()) urls.put("http://" + ip + ":" + port + "/");
@@ -246,6 +280,7 @@ public class LocalServer extends NanoWSD {
                 host = this;
             }
             if (old != null) old.closeQuietly("replaced");
+            beacon.start(); // sala aberta: anuncia na rede
 
             JSONArray list = new JSONArray();
             try {
@@ -263,6 +298,12 @@ public class LocalServer extends NanoWSD {
             try {
                 JSONObject m = new JSONObject(frame.getTextPayload());
                 String t = m.optString("t");
+                if ("info".equals(t)) {
+                    // Nome do mestre, jogo etc., para o anúncio da sala na rede.
+                    JSONObject info = m.optJSONObject("data");
+                    if (info != null) beacon.setInfo(info.toString());
+                    return;
+                }
                 Object data = m.opt("data");
                 if (data == null) return;
                 String text = data.toString();
@@ -282,6 +323,7 @@ public class LocalServer extends NanoWSD {
             synchronized (lock) {
                 wasHost = host == this;
                 if (wasHost) host = null;
+                if (wasHost) beacon.stop(); // sala fechada: para de anunciar
             }
             if (!wasHost) return;
             String msg = "{\"type\":\"_host-offline\"}";

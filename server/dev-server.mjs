@@ -17,6 +17,8 @@ import { WebSocketServer } from 'ws';
 const WEB_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../web');
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_PLAYERS = 32;
+// Código de 4 dígitos da sala (no app ele também é anunciado na rede; aqui só aparece na tela).
+const ROOM_CODE = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
 const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 
 const MIME = {
@@ -41,7 +43,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/pq-info.json') {
     res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
-    res.end(JSON.stringify({ server: 'plano-quadrante', app: false, port: PORT, lanUrls: lanUrls(PORT) }));
+    res.end(JSON.stringify({ server: 'plano-quadrante', app: false, port: PORT, lanUrls: lanUrls(PORT), code: ROOM_CODE, apk: false }));
     return;
   }
   let rel = decodeURIComponent(url.pathname);

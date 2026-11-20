@@ -140,7 +140,19 @@ export function startHost(root, env, { onExit = null } = {}) {
     return [...scores.values()];
   }
 
+  // Conta para o app quem é o mestre e qual o jogo: vai no anúncio da sala
+  // na rede (tela "Entrar numa sala" dos outros celulares).
+  let lastInfo = '';
+  function announce() {
+    const g = match ? getGame(match.gameId) : game();
+    const info = JSON.stringify({ name: host.name, game: g.name, count: online().length });
+    if (info === lastInfo) return;
+    lastInfo = info;
+    relay.send({ t: 'info', data: JSON.parse(info) });
+  }
+
   function syncAll() {
+    announce();
     for (const c of clients.values()) syncOne(c.id);
     persist();
     draw();
@@ -240,7 +252,8 @@ export function startHost(root, env, { onExit = null } = {}) {
     const canStart = playing.length >= g.meta.minPlayers;
 
     const invite = h('section', { class: 'card', 'data-sec': 'convidar' },
-      h('h2', {}, 'Convidar'),
+      h('div', { class: 'card-head' }, h('h2', {}, 'Convidar'),
+        info?.code ? h('span', { class: 'room-code-tag', 'aria-label': `Código da sala ${info.code}` }, 'Código ', h('b', {}, info.code)) : null),
       urls.length
         ? h('div', { class: 'invite' },
           qr(urls[0]),
@@ -248,6 +261,7 @@ export function startHost(root, env, { onExit = null } = {}) {
             h('p', {}, 'Amigos no ', h('strong', {}, 'mesmo Wi-Fi'), ' ou no seu hotspot leem o QR ou digitam:'),
             h('p', { class: 'address' }, urls[0]),
             urls.length > 1 ? disclosure('Outros endereços', h('ul', {}, urls.slice(1).map((u) => h('li', {}, u)))) : null,
+            info?.code ? h('p', { class: 'small muted' }, 'Quem tem o app: "Entrar numa sala" e o código ', h('b', { class: 'gold' }, info.code), '.') : null,
             h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')))
         : [h('p', { class: 'warn' }, 'Nenhuma rede encontrada. Conecte-se a um Wi-Fi ou ligue o hotspot e toque em "Atualizar".'),
           h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')]);
