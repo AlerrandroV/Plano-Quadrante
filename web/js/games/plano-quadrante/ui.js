@@ -6,15 +6,15 @@
 //   ctx.shared -> true = todos na mesma tela (layout de mesa, painéis girados)
 import { h } from '../../ui/dom.js';
 import * as G from './rules.js';
-import { PAL, TEAM, drawPawn, drawDie, pixelCanvas, DIE_SIZE } from '../../ui/pixel.js';
+import { PAL, TEAM, drawPawn, drawDie, drawText, textWidth, mix, pixelCanvas, DIE_SIZE } from '../../ui/pixel.js';
 import { sfx } from '../../ui/sound.js';
 import {
   tableLayout, fitTable, setTurnColor, playerPanel as panel, spectatorPanel, btn, logBar,
 } from '../../ui/table.js';
 
 // ------------------------------------------------------------ geometria
-const STEP = 16;
-const MARGIN = 11;
+const STEP = 32;   // 2x: mais espaço para detalhe
+const MARGIN = 22;
 const BW = (G.MAX - G.MIN) * STEP + 2 * MARGIN;
 const px = (x) => MARGIN + (x - G.MIN) * STEP;
 const py = (y) => MARGIN + (G.MAX - y) * STEP;
@@ -444,41 +444,87 @@ class Board {
     requestAnimationFrame(frame);
   }
 
+  /** Fundo do tabuleiro (não muda durante a partida): desenhado uma vez. */
+  background() {
+    if (this.bg) return this.bg;
+    const c = document.createElement('canvas');
+    c.width = BW;
+    c.height = BW;
+    const g = c.getContext('2d');
+    const span = (G.MAX - G.MIN) * STEP;
+    const x0 = px(G.MIN);
+    const y0 = py(G.MAX);
+    g.fillStyle = PAL.ink;
+    g.fillRect(0, 0, BW, BW);
+    // Campo com trama discreta.
+    g.fillStyle = '#20253d';
+    g.fillRect(x0 - 12, y0 - 12, span + 24, span + 24);
+    g.fillStyle = '#242a45';
+    for (let y = y0 - 12; y < y0 + span + 12; y += 4) {
+      for (let x = x0 - 12 + ((y / 4) % 2) * 2; x < x0 + span + 12; x += 4) g.fillRect(x, y, 1, 1);
+    }
+    // Grade: linhas finas e pontinhos no meio das casas.
+    g.fillStyle = '#323a5d';
+    for (let v = G.MIN + 1; v < G.MAX; v++) {
+      g.fillRect(px(v), y0, 1, span);
+      g.fillRect(x0, py(v), span, 1);
+    }
+    g.fillStyle = '#2a3150';
+    for (let x = G.MIN; x < G.MAX; x++) for (let y = G.MIN; y < G.MAX; y++) g.fillRect(px(x) + STEP / 2, py(y) - STEP / 2, 1, 1);
+    // Eixos x e y (2 px) com setas nas pontas positivas.
+    g.fillStyle = PAL.steel;
+    g.fillRect(px(0), y0, 2, span);
+    g.fillRect(x0, py(0), span, 2);
+    g.fillStyle = PAL.fog;
+    for (let i = 0; i < 4; i++) {
+      g.fillRect(px(G.MAX) - 9 + i, py(0) - 3 + i, 1, 8 - 2 * i);   // seta do x (direita)
+      g.fillRect(px(0) - 3 + i, py(G.MAX) + 9 - i, 8 - 2 * i, 1);   // seta do y (para cima)
+    }
+    // Moldura colorida com chanfro: azul em cima, laranja à direita, verde embaixo, vermelho à esquerda.
+    const band = (color, x, y, w, h, horizontal) => {
+      const t = TEAM[color];
+      g.fillStyle = t.base; g.fillRect(x, y, w, h);
+      g.fillStyle = mix(t.light, '#ffffff', 0.2);
+      if (horizontal) g.fillRect(x, y, w, 1); else g.fillRect(x, y, 1, h);
+      g.fillStyle = t.dark;
+      if (horizontal) g.fillRect(x, y + h - 1, w, 1); else g.fillRect(x + w - 1, y, 1, h);
+    };
+    band('vermelho', x0 - 2, y0 - 2, 5, span + 5, false);
+    band('laranja', px(G.MAX) - 2, y0 - 2, 5, span + 5, false);
+    band('azul', x0 - 2, y0 - 2, span + 5, 5, true);
+    band('verde', x0 - 2, py(G.MIN) - 2, span + 5, 5, true);
+    // Interseções em losango; a origem (0, 0) em dourado.
+    for (let x = G.MIN; x <= G.MAX; x++) {
+      for (let y = G.MIN; y <= G.MAX; y++) {
+        const cx = px(x);
+        const cy = py(y);
+        const origin = x === 0 && y === 0;
+        const r = origin ? 4 : 3;
+        g.fillStyle = PAL.ink;
+        for (let k = -r - 1; k <= r + 1; k++) g.fillRect(cx - (r + 1 - Math.abs(k)), cy + k, 2 * (r + 1 - Math.abs(k)) + 1, 1);
+        g.fillStyle = origin ? PAL.gold : PAL.fog;
+        for (let k = -r; k <= r; k++) g.fillRect(cx - (r - Math.abs(k)), cy + k, 2 * (r - Math.abs(k)) + 1, 1);
+        g.fillStyle = origin ? '#fff6c8' : PAL.white;
+        g.fillRect(cx - 1, cy - r + 1, 1, 1);
+      }
+    }
+    // Números das coordenadas nas margens (embaixo: x; à esquerda: y).
+    for (let v = G.MIN; v <= G.MAX; v++) {
+      const label = String(v);
+      const w = textWidth(label);
+      drawText(g, label, px(v) - Math.floor(w / 2), py(G.MIN) + 9, v === 0 ? PAL.gold : PAL.steel);
+      drawText(g, label, x0 - 9 - w, py(v) - 3, v === 0 ? PAL.gold : PAL.steel);
+    }
+    this.bg = c;
+    return c;
+  }
+
   draw(t) {
     const g = this.g;
     const s = this.state;
     if (!s) return;
     g.imageSmoothingEnabled = false;
-
-    // Fundo e grade
-    g.fillStyle = PAL.ink;
-    g.fillRect(0, 0, BW, BW);
-    g.fillStyle = '#20253d';
-    g.fillRect(px(G.MIN) - 6, py(G.MAX) - 6, (G.MAX - G.MIN) * STEP + 13, (G.MAX - G.MIN) * STEP + 13);
-    g.fillStyle = '#2f3656';
-    for (let v = G.MIN + 1; v < G.MAX; v++) {
-      g.fillRect(px(v), py(G.MAX), 1, (G.MAX - G.MIN) * STEP);
-      g.fillRect(px(G.MIN), py(v), (G.MAX - G.MIN) * STEP, 1);
-    }
-    // Eixos x e y
-    g.fillStyle = PAL.steel;
-    g.fillRect(px(0), py(G.MAX), 1, (G.MAX - G.MIN) * STEP);
-    g.fillRect(px(G.MIN), py(0), (G.MAX - G.MIN) * STEP, 1);
-    // Moldura colorida: azul em cima, laranja à direita, verde embaixo, vermelho à esquerda
-    const len = (G.MAX - G.MIN) * STEP + 3;
-    g.fillStyle = TEAM.azul.base; g.fillRect(px(G.MIN) - 1, py(G.MAX) - 1, len, 3);
-    g.fillStyle = TEAM.verde.base; g.fillRect(px(G.MIN) - 1, py(G.MIN) - 1, len, 3);
-    g.fillStyle = TEAM.vermelho.base; g.fillRect(px(G.MIN) - 1, py(G.MAX) - 1, 3, len);
-    g.fillStyle = TEAM.laranja.base; g.fillRect(px(G.MAX) - 1, py(G.MAX) - 1, 3, len);
-    // Interseções
-    for (let x = G.MIN; x <= G.MAX; x++) {
-      for (let y = G.MIN; y <= G.MAX; y++) {
-        g.fillStyle = x === 0 && y === 0 ? PAL.gold : PAL.fog;
-        g.fillRect(px(x) - 1, py(y) - 1, 3, 3);
-        g.fillStyle = PAL.ink;
-        g.fillRect(px(x), py(y), 1, 1);
-      }
-    }
+    g.drawImage(this.background(), 0, 0);
 
     // Animação em andamento?
     let anim = this.anim;
@@ -488,12 +534,12 @@ class Board {
       if (k >= 1.6 || (k >= 1 && !anim.captured)) { this.anim = null; anim = null; } else animPos = Math.min(1, k);
     }
 
-    // Peças
+    // Peças (pés do peão um pouco abaixo da interseção).
     const blink = Math.floor(t / 280) % 2 === 0;
     for (const p of s.pieces) {
       if (anim && p.id === anim.pieceId && animPos < 1) continue;
       const color = s.players[p.owner].color;
-      drawPawn(g, px(p.x) - 6, py(p.y) - 9, color, { level: p.level });
+      drawPawn(g, px(p.x) - 12, py(p.y) - 18, color, { level: p.level });
     }
     if (anim && animPos < 1) this.drawHop(anim, animPos);
     if (anim && anim.captured && animPos >= 1) this.drawPoof(anim, (t - anim.start) / HOP_MS - 1);
@@ -513,64 +559,77 @@ class Board {
     if (wrapped) {
       // Atravessou a borda: some de um lado e pisca do outro.
       const at = k < 0.5 ? anim.from : anim.to;
-      if (Math.floor(k * 10) % 2 === 0) drawPawn(g, px(at.x) - 6, py(at.y) - 9, color);
+      if (Math.floor(k * 10) % 2 === 0) drawPawn(g, px(at.x) - 12, py(at.y) - 18, color);
       return;
     }
     // Rápido no começo e no fim, lento no meio (como no protótipo).
     const prog = k + Math.sin(2 * Math.PI * k) / (2 * Math.PI);
     const x = px(anim.from.x) + (px(anim.to.x) - px(anim.from.x)) * prog;
     const y = py(anim.from.y) + (py(anim.to.y) - py(anim.from.y)) * prog;
-    const lift = Math.round(Math.sin(Math.PI * k) * 10);
-    // Sombra no chão
+    const lift = Math.round(Math.sin(Math.PI * k) * 20);
+    // Sombra no chão (diminui quando a peça sobe).
+    const sw = 16 - Math.round(lift / 4);
     g.fillStyle = 'rgba(0,0,0,0.45)';
-    g.fillRect(Math.round(x) - 4, Math.round(y) + 2, 9, 2);
-    drawPawn(g, Math.round(x) - 6, Math.round(y) - 9 - lift, color);
+    g.fillRect(Math.round(x) - sw / 2, Math.round(y) + 3, sw, 3);
+    g.fillRect(Math.round(x) - sw / 2 + 2, Math.round(y) + 2, sw - 4, 5);
+    drawPawn(g, Math.round(x) - 12, Math.round(y) - 18 - lift, color);
   }
 
   drawPoof(anim, k) {
-    // Explosãozinha de pixels na captura.
+    // Explosãozinha de pixels na captura (estrelas em 8 direções).
     const g = this.g;
     const cx = px(anim.to.x);
-    const cy = py(anim.to.y) - 3;
-    const r = 3 + Math.round(k * 16);
-    g.fillStyle = k < 0.3 ? PAL.white : PAL.gold;
+    const cy = py(anim.to.y) - 6;
+    const r = 6 + Math.round(k * 32);
     for (const [dx, dy] of G.DIRS8) {
       const len = dx && dy ? 0.75 : 1;
-      g.fillRect(Math.round(cx + dx * r * len) - 1, Math.round(cy + dy * r * len) - 1, 2, 2);
+      const x = Math.round(cx + dx * r * len);
+      const y = Math.round(cy + dy * r * len);
+      g.fillStyle = k < 0.3 ? PAL.white : PAL.gold;
+      g.fillRect(x - 1, y - 3, 2, 6);
+      g.fillRect(x - 3, y - 1, 6, 2);
+      g.fillStyle = PAL.white;
+      g.fillRect(x - 1, y - 1, 2, 2);
     }
   }
 
   drawMark(m, t, blink) {
     const g = this.g;
     const cx = px(m.x);
-    const cy = py(m.y) - 3;
+    const cy = py(m.y) - 6;
     if (m.kind === 'movable') {
       // Setinha balançando em cima das peças que podem andar.
-      const bob = Math.floor(t / 200) % 2;
-      g.fillStyle = PAL.ink;
-      g.fillRect(cx - 3, cy - 13 + bob, 7, 2);
-      g.fillRect(cx - 2, cy - 11 + bob, 5, 1);
-      g.fillStyle = PAL.cyan;
-      g.fillRect(cx - 2, cy - 13 + bob, 5, 1);
-      g.fillRect(cx - 1, cy - 12 + bob, 3, 1);
-      g.fillRect(cx, cy - 11 + bob, 1, 1);
+      const bob = Math.floor(t / 200) % 2 ? 2 : 0;
+      const top = cy - 26 + bob;
+      for (let i = 0; i < 6; i++) {
+        g.fillStyle = PAL.ink;
+        g.fillRect(cx - 6 + i, top + i, 12 - 2 * i + 1, 1);
+      }
+      for (let i = 0; i < 5; i++) {
+        g.fillStyle = i === 0 ? '#c8fbff' : PAL.cyan;
+        g.fillRect(cx - 4 + i, top + i, 9 - 2 * i, 1);
+      }
       return;
     }
     const strong = { target: PAL.gold, capture: PAL.danger, selected: PAL.cyan, card: PAL.cyan }[m.kind];
     const soft = { target: '#a0784a', capture: '#8a2236', selected: PAL.cyan, card: '#3d8a90' }[m.kind];
     const color = blink ? strong : soft; // pisca, mas nunca some
-    // Cantoneiras de "cursor" retrô em volta da casa.
-    const r = 7;
-    const L = 4;
-    g.fillStyle = color;
+    // Cantoneiras de "cursor" retrô (2 px) em volta da casa.
+    const r = 14;
+    const L = 8;
+    const cyc = cy + 6;
     for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      const x0 = cx + sx * r;
-      const y0 = cy + sy * r + 3;
-      g.fillRect(sx < 0 ? x0 : x0 - L + 1, y0, L, 1);
-      g.fillRect(x0, sy < 0 ? y0 : y0 - L + 1, 1, L);
+      const x0 = sx < 0 ? cx - r : cx + r - 1;
+      const y0 = sy < 0 ? cyc - r : cyc + r - 1;
+      g.fillStyle = PAL.ink;
+      g.fillRect(sx < 0 ? x0 - 1 : x0 - L + 1, sy < 0 ? y0 - 1 : y0 - 1, L + 1, 4);
+      g.fillRect(sx < 0 ? x0 - 1 : x0 - 2, sy < 0 ? y0 - 1 : y0 - L + 1, 4, L + 1);
+      g.fillStyle = color;
+      g.fillRect(sx < 0 ? x0 : x0 - L + 1, sy < 0 ? y0 : y0 - 1, L, 2);
+      g.fillRect(sx < 0 ? x0 : x0 - 1, sy < 0 ? y0 : y0 - L + 1, 2, L);
     }
     if (m.kind === 'target' && !G.pieceAt(this.state, m.x, m.y)) {
-      g.fillRect(cx - 1, cy + 2, 3, 3);
+      for (let k = -3; k <= 3; k++) g.fillRect(cx - (3 - Math.abs(k)), cyc + k, 2 * (3 - Math.abs(k)) + 1, 1);
     }
   }
 }

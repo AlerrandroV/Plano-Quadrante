@@ -126,7 +126,7 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/games/index.js       ← CATÁLOGO: lista de jogos, ilustrações, capacidade
   js/games/plano-quadrante/rules.js, ui.js
   js/games/damas/rules.js, ui.js
-  js/ui/pixel.js          paleta, peões, pedras, dados (pixel art em canvas)
+  js/ui/pixel.js          pixel art 2x gerada em código (peões, pedras, dados, peças de dominó, fonte 5x7)
   js/ui/table.js          "mesa" comum: grade simétrica, painéis, registro, ajuda
   js/ui/platform.js       catálogo, seletor de cores, placar
   js/ui/colors.js         as 10 cores e a regra de cores únicas
@@ -276,6 +276,32 @@ raiz do domínio. O convite aponta para o IP local do celular do mestre
 fazer com um site `AlerrandroV.github.io`, mas aí quem **não** tem o app
 precisaria de internet para abrir o convite. O botão *Abrir no app* resolve
 com um toque, sem domínio e sem internet.
+
+## Pixel art em 2x
+
+Tudo o que é desenhado nos jogos tem o dobro de pixels por peça:
+
+| Peça | Tamanho |
+|---|---|
+| Peão | 24×24 |
+| Pedra de damas | 28×28 |
+| Dado | 42×42 |
+| Peça de dominó | 24×48 |
+| Tabuleiro do Plano Quadrante | 300 px |
+| Tabuleiro de damas | 316 px |
+| Mesa do dominó | 352 px |
+
+Continua pixelado, mas com espaço para detalhe:
+- sombreado em 5 tons, brilho e contornos;
+- espessura e anel nas pedras, coroa com pedra vermelha;
+- chanfro, pino e pontos redondos no dominó;
+- números das coordenadas no Plano Quadrante;
+- textura nas casas e no feltro.
+
+As peças são geradas por forma + luz (`ui/pixel.js`) e guardadas em cache,
+e o fundo dos tabuleiros é desenhado uma vez só. Num celular comum, o
+Plano Quadrante e as damas aparecem em 100%, nítidos. Em telas menores que
+o tabuleiro, a redução é suavizada, para não sumir linha fina.
 
 ## Sons e janelas
 

@@ -52,6 +52,8 @@ export function fitTable(pq, canvas, native, holder) {
     // vale mais o tabuleiro grande do que a escala exata.
     k = k >= 3 ? Math.floor(k * 2) / 2 : k >= 1 ? Math.floor(k * 4) / 4 : k;
     const size = Math.floor(native * k);
+    // Reduzir em modo pixelado apaga linhas finas: abaixo de 100%, suaviza.
+    canvas.classList.toggle('shrunk', k < 1);
     pq.style.setProperty('--board', `${size}px`);
     canvas.style.width = `${size}px`;
     canvas.style.height = `${size}px`;

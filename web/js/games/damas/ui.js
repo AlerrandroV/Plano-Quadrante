@@ -9,8 +9,8 @@ import * as D from './rules.js';
 import { ask } from '../../ui/modal.js';
 import { sfx } from '../../ui/sound.js';
 
-const CELL = 18; // pedra de 14 px com 2 px de casa escura em volta
-const M = 8;
+const CELL = 36; // 2x: pedra de 28 px com 4 px de casa escura em volta
+const M = 14; // tabuleiro de 316 px: 100% num celular comum
 const BW = D.N * CELL + 2 * M;
 const LIGHT = '#e8e8ee';
 const DARK = '#25262f';
@@ -181,7 +181,7 @@ function damasPanel(state, i, { controls = null, flipped = false, me = false } =
 }
 
 function discIcon(color) {
-  const c = pixelCanvas(DISC_SIZE, DISC_SIZE, 'pq-pawn-icon');
+  const c = pixelCanvas(DISC_SIZE, DISC_SIZE, 'pq-disc-icon');
   drawDisc(c.getContext('2d'), 0, 0, color);
   return c;
 }
@@ -305,21 +305,48 @@ class Board {
     requestAnimationFrame(frame);
   }
 
+  /** Tabuleiro (casas e moldura) desenhado uma vez para cada orientação. */
+  background() {
+    const key = this.flip ? 'f' : 'n';
+    this.bgs ||= {};
+    if (this.bgs[key]) return this.bgs[key];
+    const c = document.createElement('canvas');
+    c.width = BW;
+    c.height = BW;
+    const g = c.getContext('2d');
+    const span = D.N * CELL;
+    g.fillStyle = PAL.ink;
+    g.fillRect(0, 0, BW, BW);
+    // Moldura com chanfro (luz em cima/esquerda, sombra embaixo/direita).
+    g.fillStyle = '#4a5878'; g.fillRect(M - 8, M - 8, span + 16, span + 16);
+    g.fillStyle = '#7d8fae'; g.fillRect(M - 8, M - 8, span + 16, 2); g.fillRect(M - 8, M - 8, 2, span + 16);
+    g.fillStyle = '#2b3550'; g.fillRect(M - 8, M + span + 6, span + 16, 2); g.fillRect(M + span + 6, M - 8, 2, span + 16);
+    g.fillStyle = PAL.ink; g.fillRect(M - 2, M - 2, span + 4, span + 4);
+    for (let i = 0; i < D.N * D.N; i++) {
+      const { x, y } = cellXY(i, this.flip);
+      const dark = D.isDark(i);
+      g.fillStyle = dark ? DARK : LIGHT;
+      g.fillRect(x, y, CELL, CELL);
+      // Textura: grão nas casas claras, trama diagonal nas escuras.
+      g.fillStyle = dark ? '#2c2d38' : '#dcdce4';
+      for (let yy = 0; yy < CELL; yy += 3) {
+        for (let xx = (yy * 2) % 6; xx < CELL; xx += 6) g.fillRect(x + xx, y + yy, 1, 1);
+      }
+      // Relevo de cada casa.
+      g.fillStyle = dark ? '#33343f' : '#f6f6fa';
+      g.fillRect(x, y, CELL, 1); g.fillRect(x, y, 1, CELL);
+      g.fillStyle = dark ? '#1c1d25' : '#c9c9d3';
+      g.fillRect(x, y + CELL - 1, CELL, 1); g.fillRect(x + CELL - 1, y, 1, CELL);
+    }
+    this.bgs[key] = c;
+    return c;
+  }
+
   draw(t) {
     const g = this.g;
     const s = this.state;
     if (!s) return;
-    g.fillStyle = PAL.ink;
-    g.fillRect(0, 0, BW, BW);
-    g.fillStyle = PAL.steel;
-    g.fillRect(M - 2, M - 2, D.N * CELL + 4, D.N * CELL + 4);
-    g.fillStyle = PAL.ink;
-    g.fillRect(M - 1, M - 1, D.N * CELL + 2, D.N * CELL + 2);
-    for (let i = 0; i < D.N * D.N; i++) {
-      const { x, y } = cellXY(i, this.flip);
-      g.fillStyle = D.isDark(i) ? DARK : LIGHT;
-      g.fillRect(x, y, CELL, CELL);
-    }
+    g.drawImage(this.background(), 0, 0);
 
     const team = (side) => s.players[D.sideIndex(s, side)].color;
     let anim = this.anim;
@@ -334,9 +361,9 @@ class Board {
     if (s.last && !anim) {
       for (const i of [s.last.from, s.last.path[s.last.path.length - 1]]) {
         const { x, y } = cellXY(i, this.flip);
-        g.fillStyle = '#8c6a3a';
-        g.fillRect(x, y, 3, 1); g.fillRect(x, y, 1, 3);
-        g.fillRect(x + CELL - 3, y + CELL - 1, 3, 1); g.fillRect(x + CELL - 1, y + CELL - 3, 1, 3);
+        g.fillStyle = '#b08a4a';
+        g.fillRect(x + 1, y + 1, 6, 2); g.fillRect(x + 1, y + 1, 2, 6);
+        g.fillRect(x + CELL - 7, y + CELL - 3, 6, 2); g.fillRect(x + CELL - 3, y + CELL - 7, 2, 6);
       }
     }
 
@@ -345,7 +372,7 @@ class Board {
       const p = s.board[i];
       if (!p || (anim && i === dest && k < 1)) continue;
       const { x, y } = cellXY(i, this.flip);
-      drawDisc(g, x + 2, y + 2, team(p.s), { king: p.k });
+      drawDisc(g, x + 4, y + 4, team(p.s), { king: p.k });
     }
 
     if (anim && k < 1) {
@@ -354,20 +381,21 @@ class Board {
       anim.captures.forEach((c, n) => {
         if (k * steps < n + 0.6) {
           const { x, y } = cellXY(c, this.flip);
-          drawDisc(g, x + 2, y + 2, victim, { ghost: k * steps > n });
+          drawDisc(g, x + 4, y + 4, victim, { ghost: k * steps > n });
         }
       });
-      // Peça saltando de casa em casa.
+      // Peça saltando de casa em casa (sombra encolhe enquanto ela sobe).
       const seg = Math.min(steps - 1, Math.floor(k * steps));
       const f = k * steps - seg;
       const a = cellXY(seg === 0 ? anim.from : anim.path[seg - 1], this.flip);
       const b = cellXY(anim.path[seg], this.flip);
       const x = Math.round(a.x + (b.x - a.x) * f);
       const y = Math.round(a.y + (b.y - a.y) * f);
-      const lift = Math.round(Math.sin(Math.PI * f) * 6);
+      const lift = Math.round(Math.sin(Math.PI * f) * 12);
+      const sw = 22 - Math.round(lift / 2);
       g.fillStyle = 'rgba(0,0,0,0.4)';
-      g.fillRect(x + 4, y + 14, 10, 2);
-      drawDisc(g, x + 2, y + 2 - lift, team(anim.side), { king: anim.king });
+      g.fillRect(x + 18 - sw / 2, y + 28, sw, 4);
+      drawDisc(g, x + 4, y + 4 - lift, team(anim.side), { king: anim.king });
     }
 
     if (!anim) {
@@ -380,28 +408,30 @@ class Board {
     const g = this.g;
     const { x, y } = cellXY(m.i, this.flip);
     if (m.kind === 'movable') {
-      const bob = Math.floor(t / 200) % 2;
-      g.fillStyle = PAL.ink;
-      g.fillRect(x + 5, y - 2 + bob, 8, 2);
-      g.fillStyle = PAL.cyan;
-      g.fillRect(x + 6, y - 2 + bob, 6, 1);
-      g.fillRect(x + 7, y - 1 + bob, 4, 1);
-      g.fillRect(x + 8, y + bob, 2, 1);
+      // Setinha balançando em cima das pedras que podem jogar.
+      const bob = Math.floor(t / 200) % 2 ? 2 : 0;
+      const cx = x + CELL / 2;
+      const top = y - 5 + bob;
+      for (let i = 0; i < 6; i++) { g.fillStyle = PAL.ink; g.fillRect(cx - 6 + i, top + i, 12 - 2 * i, 1); }
+      for (let i = 0; i < 5; i++) { g.fillStyle = i === 0 ? '#c8fbff' : PAL.cyan; g.fillRect(cx - 5 + i, top + i, 10 - 2 * i, 1); }
       return;
     }
     const strong = { target: PAL.gold, capture: PAL.danger, selected: PAL.cyan }[m.kind];
     const soft = { target: '#a0784a', capture: '#8a2236', selected: PAL.cyan }[m.kind];
-    g.fillStyle = blink ? strong : soft;
-    const L = 5;
-    const e = CELL - 1;
+    const L = 10;
+    const e = CELL - 2;
     for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
       const x0 = x + sx * e;
       const y0 = y + sy * e;
-      g.fillRect(sx ? x0 - L + 1 : x0, y0, L, 1);
-      g.fillRect(x0, sy ? y0 - L + 1 : y0, 1, L);
+      g.fillStyle = blink ? strong : soft;
+      g.fillRect(sx ? x0 - L + 2 : x0, y0, L, 2);
+      g.fillRect(x0, sy ? y0 - L + 2 : y0, 2, L);
     }
     if (m.kind === 'target' && !this.state.board[m.i]) {
-      g.fillRect(x + 7, y + 7, 4, 4);
+      g.fillStyle = blink ? strong : soft;
+      const cx = x + CELL / 2;
+      const cy = y + CELL / 2;
+      for (let k = -4; k <= 4; k++) g.fillRect(cx - (4 - Math.abs(k)), cy + k, 2 * (4 - Math.abs(k)) + 1, 1);
     }
   }
 }

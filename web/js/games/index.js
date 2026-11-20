@@ -23,8 +23,8 @@ import * as dominoRules from './domino/rules.js';
 import * as dominoUi from './domino/ui.js';
 import { PAL, TEAM, drawPawn, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
-export const ART_W = 64;
-export const ART_H = 40;
+export const ART_W = 128; // 2x
+export const ART_H = 80;
 
 export const GAMES = [
   {
@@ -84,43 +84,39 @@ export function capacityText(game) {
 }
 
 // ------------------------------------------------------- ilustrações
+// 128x80, desenhadas com as mesmas peças dos jogos.
 function artPlanoQuadrante(g) {
   g.fillStyle = PAL.ink; g.fillRect(0, 0, ART_W, ART_H);
-  g.fillStyle = '#20253d'; g.fillRect(2, 2, 36, 36);
-  g.fillStyle = '#2f3656';
-  for (let v = 6; v < 38; v += 4) { g.fillRect(v, 3, 1, 34); g.fillRect(3, v, 34, 1); }
-  g.fillStyle = PAL.steel; g.fillRect(20, 3, 1, 34); g.fillRect(3, 20, 34, 1);
-  g.fillStyle = TEAM.azul.base; g.fillRect(2, 2, 36, 1);
-  g.fillStyle = TEAM.verde.base; g.fillRect(2, 37, 36, 1);
-  g.fillStyle = TEAM.vermelho.base; g.fillRect(2, 2, 1, 36);
-  g.fillStyle = TEAM.laranja.base; g.fillRect(37, 2, 1, 36);
-  drawPawn(g, 6, 6, 'azul');
-  drawPawn(g, 22, 18, 'laranja');
-  drawPawn(g, 10, 22, 'verde');
-  drawDie(g, 41, 2, 3, 'vermelho');
-  drawDie(g, 41, 18, 2, 'azul');
+  g.fillStyle = '#20253d'; g.fillRect(4, 4, 72, 72);
+  g.fillStyle = '#323a5d';
+  for (let v = 12; v < 76; v += 8) { g.fillRect(v, 6, 1, 68); g.fillRect(6, v, 68, 1); }
+  g.fillStyle = PAL.steel; g.fillRect(40, 6, 2, 68); g.fillRect(6, 40, 68, 2);
+  const band = (c, x, y, w, h) => { g.fillStyle = TEAM[c].base; g.fillRect(x, y, w, h); };
+  band('azul', 4, 4, 72, 3); band('verde', 4, 73, 72, 3); band('vermelho', 4, 4, 3, 72); band('laranja', 73, 4, 3, 72);
+  g.fillStyle = PAL.gold; g.fillRect(39, 39, 4, 4);
+  drawPawn(g, 12, 6, 'azul');
+  drawPawn(g, 44, 30, 'laranja', { level: 2 });
+  drawPawn(g, 18, 46, 'verde');
+  drawDie(g, 82, 2, 3, 'vermelho');
+  drawDie(g, 82, 38, 2, 'azul');
 }
 
 function artDamas(g) {
-  // Tabuleiro visto de longe: casas de 8 px e pedras pequenas.
-  const cell = 8;
-  const piece = (x, y, color, king) => {
-    const t = TEAM[color];
-    g.fillStyle = t.edge; g.fillRect(x + 2, y + 1, 4, 6); g.fillRect(x + 1, y + 2, 6, 4);
-    g.fillStyle = t.base; g.fillRect(x + 2, y + 2, 4, 4);
-    g.fillStyle = t.light; g.fillRect(x + 2, y + 2, 2, 1);
-    g.fillStyle = t.dark; g.fillRect(x + 3, y + 5, 3, 1);
-    if (king) { g.fillStyle = PAL.gold; g.fillRect(x + 3, y + 3, 2, 2); }
-  };
-  for (let r = 0; r < 5; r++) {
-    for (let c = 0; c < 8; c++) {
+  // Recorte do tabuleiro com pedras de verdade (casas de 32 px).
+  const cell = 32;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 4; c++) {
       const dark = (r + c) % 2 === 1;
+      const x = c * cell;
+      const y = r * cell - 8;
       g.fillStyle = dark ? '#25262f' : '#e8e8ee';
-      g.fillRect(c * cell, r * cell, cell, cell);
+      g.fillRect(x, y, cell, cell);
+      g.fillStyle = dark ? '#33343f' : '#f6f6fa'; g.fillRect(x, y, cell, 1);
       if (!dark) continue;
-      if (r <= 1) piece(c * cell, r * cell, 'preto');
-      else if (r >= 3) piece(c * cell, r * cell, 'branco');
-      else if (c === 3) piece(c * cell, r * cell, 'branco', true);
+      if (r === 0) drawDisc(g, x + 2, y + 2, 'preto');
+      else if (r === 1 && c === 2) drawDisc(g, x + 2, y + 2, 'branco', { king: true });
+      else if (r === 1) drawDisc(g, x + 2, y + 2, 'preto');
+      else drawDisc(g, x + 2, y + 2, 'branco');
     }
   }
 }
@@ -128,11 +124,11 @@ function artDamas(g) {
 function artDomino(g) {
   g.fillStyle = '#1d4a3a'; g.fillRect(0, 0, ART_W, ART_H);
   g.fillStyle = '#163a2d';
-  for (let y = 0; y < ART_H; y += 4) for (let x = (y / 4) % 2 * 2; x < ART_W; x += 4) g.fillRect(x, y, 1, 1);
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
   // Uma fila de peças e duas peças "na mão", viradas.
-  drawTile(g, 2, 14, false, 6, 6);
-  drawTile(g, 26, 14, false, 6, 3);
-  drawTile(g, 50, 8, true, 3, 5);
-  drawTile(g, 6, 27, false, 1, 4, { back: true });
-  drawTile(g, 30, 27, false, 2, 2, { back: true });
+  drawTile(g, 2, 26, false, 6, 6);
+  drawTile(g, 50, 26, false, 6, 3);
+  drawTile(g, 100, 10, true, 3, 5);
+  drawTile(g, 14, 54, false, 1, 4, { back: true });
+  drawTile(g, 64, 54, false, 2, 2, { back: true });
 }
