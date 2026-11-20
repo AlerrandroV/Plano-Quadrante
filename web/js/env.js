@@ -67,3 +67,30 @@ export function apkDownloadUrl() {
     releases: `https://github.com/${owner}/${repo}/releases/latest`,
   };
 }
+
+// ------------------------------------------------- app Android x navegador
+const APP_PACKAGE = 'io.github.alerrandrov.planoquadrante';
+
+/** Ponte com o app Android (window.PQAndroid), ou null fora do app. */
+export function appBridge() {
+  const b = window.PQAndroid;
+  return b && typeof b.home === 'function' ? b : null;
+}
+
+/** Esta página está dentro do app (WebView marcada no "user agent")? */
+export function isInApp() {
+  return /PlanoQuadranteApp/.test(navigator.userAgent) && !!appBridge();
+}
+
+export function isAndroidBrowser() {
+  return /Android/i.test(navigator.userAgent) && !isInApp();
+}
+
+/**
+ * Link que abre esta sala no app, se ele estiver instalado. Sem o app, o
+ * Chrome volta para `fallback` (a mesma sala, no navegador).
+ */
+export function openInAppUrl(roomUrl, fallback) {
+  return `intent://sala/?u=${encodeURIComponent(roomUrl)}#Intent;scheme=planoquadrante;package=${APP_PACKAGE};`
+    + `S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+}

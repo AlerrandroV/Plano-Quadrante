@@ -133,6 +133,7 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/games/domino/rules.js, ui.js
   js/bots/                robôs (damas: alfa-beta; Plano Quadrante: perigo; dominó: memória e bloqueio) + Web Worker
   js/ui/modal.js          janelas do próprio jogo (no lugar de confirm/prompt/dialog do navegador)
+  js/modes/menu.js        menu do app: Mesma tela / Criar sala / Entrar numa sala (código ou salas na rede)
   js/ui/sound.js          efeitos sonoros 16 bits sintetizados (Web Audio, sem arquivos)
   js/modes/menu.js        menu do app (Mesma tela / Sala Wi-Fi)
   js/modes/local.js       mesma tela: catálogo → preparação → partida
@@ -140,7 +141,7 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/modes/player.js      jogador/espectador no navegador
   js/net/relay-client.js  WebSocket com reconexão automática
   vendor/                 QR code e fontes pixel (licenças MIT e OFL)
-android/                  app Android (WebView + servidor NanoHTTPD)
+android/                  app Android (WebView + servidor NanoHTTPD + anúncio/busca de salas na rede)
 server/dev-server.mjs     o mesmo servidor do app, em Node, para testar no PC
 test/                     testes das regras de cada jogo
 ```
@@ -254,6 +255,27 @@ Dominó duplo-seis (28 peças), de 2 a 4 jogadores, 7 peças para cada um.
 celular de quem joga recebe apenas as próprias peças (dos outros, só a
 quantidade). No site e na opção *Mesma tela* do app, o dominó é só **você
 contra robôs**. Para jogar com amigos, use a sala Wi-Fi.
+
+## Convites e app com app
+
+**Convite pelo QR code, num Android:** antes de entrar, a pessoa escolhe:
+- **Abrir no app:** se o app estiver instalado, a sala abre nele. É um link `intent://` do Android; sem o app, o navegador volta para o convite avisando que não achou o app.
+- **Baixar app Android:** o APK vem **do próprio celular do mestre** (`/plano-quadrante.apk`), então funciona até no hotspot, sem internet.
+- **Continuar no navegador:** sem instalar nada.
+
+No iPhone e no computador (onde o APK não serve), a pessoa entra direto.
+
+**Dois ou mais celulares com o app:** no menu, use **Entrar numa sala**.
+- **Salas achadas na rede:** cada sala aberta anuncia na rede local (UDP broadcast, a cada segundo) o seu **código de 4 dígitos**, o nome do mestre, o jogo e quantas pessoas estão nela. A sala aparece sozinha na lista.
+- **Código:** também dá para digitar o código. Ele aparece em *Convidar*, ao lado do QR.
+
+**Por que não abre "por padrão" no app direto do QR code?** Isso exige *App
+Links verificados*: um endereço **https** com um arquivo de verificação na
+raiz do domínio. O convite aponta para o IP local do celular do mestre
+(`http://192.168.x.x:8080`), que o Android não consegue verificar. Daria para
+fazer com um site `AlerrandroV.github.io`, mas aí quem **não** tem o app
+precisaria de internet para abrir o convite. O botão *Abrir no app* resolve
+com um toque, sem domínio e sem internet.
 
 ## Sons e janelas
 
