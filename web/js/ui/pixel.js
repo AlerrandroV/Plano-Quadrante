@@ -473,3 +473,20 @@ export function pixelCanvas(w, h, className = '') {
   ctx.imageSmoothingEnabled = false;
   return c;
 }
+
+/**
+ * Canvas em alta resolução: desenha-se em unidades de arte (w x h), mas o
+ * canvas tem `scale` vezes mais pixels. Formas desenhadas com fillRect
+ * continuam do mesmo jeito; imagens mais detalhadas (as cartas) aparecem
+ * com todo o detalhe.
+ */
+export function hiCanvas(w, h, className = '', scale = 2) {
+  const c = document.createElement('canvas');
+  c.width = w * scale;
+  c.height = h * scale;
+  c.className = 'pixel ' + className;
+  const ctx = c.getContext('2d');
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  return c;
+}

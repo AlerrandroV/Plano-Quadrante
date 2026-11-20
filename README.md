@@ -143,7 +143,7 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/games/pife/rules.js, ui.js
   js/games/poker/rules.js, ui.js
   js/games/solitario/rules.js, ui.js
-  js/ui/cards52.js        baralho francês em pixel art (Pife, Poker, Solitário)
+  js/ui/cards52.js        baralho francês em pixel art, desenhado em 64x92 (Pife, Poker, Solitário)
   js/bots/                robôs (damas: alfa-beta; Domínio da Teia: perigo; dominó: memória e bloqueio; Última Carta: ataque e memória de cores) + Web Worker
   js/ui/modal.js          janelas do próprio jogo (no lugar de confirm/prompt/dialog do navegador)
   js/modes/menu.js        menu do app: Mesma tela / Criar sala / Entrar numa sala (código ou salas na rede)
@@ -259,12 +259,12 @@ modo pontos, o Médio vence o Fácil em ~80%.
 É um jogo de muita sorte: o Médio vence o Fácil em ~63% das partidas, o
 Difícil vence o Médio em ~56% e o Fácil em ~68% (simulação, 2 jogadores).
 
-**Pife** (`web/js/bots/pife.js`): o robô só enxerga a própria mão e o descarte.
+**Pife** (`web/js/bots/pife.js`): o robô só enxerga a própria mão e o descarte. Todos guardam os melés e, armados, batem com o descarte fora da vez (o Fácil às vezes demora; o Difícil nunca perde a chance).
 - **Fácil:** guarda os jogos prontos, mas descarta meio ao acaso e quase não pega do descarte.
 - **Médio:** conta jogos prontos e "pares" (duplas que viram jogo com mais uma carta) e descarta o que menos ajuda.
 - **Difícil:** pesa cada par pelas cartas que ainda podem sair (as do descarte já eram) e não descarta o que combina com o que o próximo já pegou do descarte.
 
-Simulação (2 jogadores): Médio vence o Fácil em ~62%; Difícil vence o Fácil em ~80% e o Médio em ~53% (o pife tem muita sorte).
+Simulação (2 jogadores, com melé): Médio vence o Fácil em ~67%; Difícil vence o Fácil em ~67% e o Médio em ~51%. Sem melé, o Difícil vence o Fácil em ~80%. Os melés deixam o jogo mais rápido e com mais sorte.
 
 **Poker** (`web/js/bots/poker.js`): a força da mão vem de simulações (Monte Carlo): o robô sorteia as cartas que faltam centenas de vezes e conta quantas vezes venceria.
 - **Fácil:** poucas simulações e muito "achismo": paga demais, desiste à toa.
@@ -334,19 +334,22 @@ servidor sabe, para julgar o desafio).
 
 Dois baralhos (104 cartas), de 2 a 6 jogadores, 9 cartas para cada.
 
-- **Na vez:** compre 1 carta (do monte ou a de cima do descarte) e descarte 1. Quem pegou do descarte não pode descartar a mesma carta.
+- **A vira e os melés:** antes de distribuir, uma carta é virada e fica exposta ao lado do monte (fora do jogo). Ela define os **melés**, os curingas da partida: o **clone** da vira (a mesma carta do outro baralho) e as cartas do **valor seguinte da mesma cor**. Ex.: vira 4 de Ouros → melés: 4 de Ouros, 5 de Ouros e 5 de Copas (dois de cada) = **5 melés**. Depois do Rei vem o Ás. Na mão, os melés aparecem com uma estrela.
+- **Na vez:** compre 1 carta (do monte ou a de cima do descarte) e descarte 1. Quem pegou do descarte não pode descartar a mesma carta. **Melé do descarte** só pode ser pego se for a última carta que falta para bater.
 - **Bater:** formar 3 jogos de 3 cartas com as 9 e descartar a 10ª.
   - **Trinca:** 3 cartas do mesmo valor, de naipes diferentes.
   - **Sequência:** 3 cartas seguidas do mesmo naipe (A-2-3 e Q-K-A valem; K-A-2 não).
+  - O melé vale qualquer carta (um por jogo) ou ele mesmo.
+- **Armado, fora da vez:** quem só precisa de uma carta pode bater com a carta de cima do descarte **mesmo fora da vez** (botão "Bater com..."), mas tem que ser rápido: se outra carta já tiver sido descartada por cima, é **choque**.
 - **Caixas:** a mão fica numa caixa de 9 lugares e, embaixo, 3 caixas de 3 lugares para montar os jogos. Toque numa carta e depois noutro lugar para mover ou trocar. As cartas começam em ordem: A, 2-10, J, Q, K; Ouros, Paus, Copas, Espadas. A caixa de baixo fica verde quando o jogo fecha. Com as 3 caixas cheias, aparece **Bater!**, e a carta que sobrou em cima é o descarte.
 
-**Regras da casa** (opção *Da casa*, cada uma liga e desliga):
-- **Com melé:** entram 4 curingas (o melé). Ele vale qualquer carta, um por jogo.
+**Regras da casa** (cada uma liga e desliga):
 - **Bater de naipe:** as 9 cartas do mesmo naipe batem; o melé vale qualquer naipe.
 - **Mão sem par:** se as 9 cartas recebidas não formam nem um par, bate de cara. Par aqui é valor repetido ou dupla do mesmo naipe que possa virar sequência (seguidas ou com um buraco, ex.: 5 e 7).
-- **Choque:** anunciou que bateu sem ter batido? "Deu choque": a partir daí só pode bater com carta comprada do **monte**, não do descarte.
+- **Choque:** anunciou que bateu sem ter batido, ou chegou atrasado no descarte? "Deu choque": a partir daí só pode bater com carta comprada do **monte**.
+- **Com coringa** (desligada): entram os 4 coringas do baralho, que também valem qualquer carta.
 
-A opção *Tradicional* usa só as regras básicas, sem melé.
+A opção *Sem melé* joga sem a vira.
 
 ## Poker
 

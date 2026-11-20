@@ -2,7 +2,7 @@
 // sozinha para onde dá (fundação primeiro); se houver mais de um lugar, ela
 // fica marcada e você toca no destino.
 import { h } from '../../ui/dom.js';
-import { PAL, pixelCanvas, drawText, textWidth } from '../../ui/pixel.js';
+import { hiCanvas, PAL, pixelCanvas, drawText, textWidth } from '../../ui/pixel.js';
 import { tableLayout, fitTable, setTurnColor, playerPanel, btn, logBar } from '../../ui/table.js';
 import { sfx } from '../../ui/sound.js';
 import { ask } from '../../ui/modal.js';
@@ -10,6 +10,7 @@ import { drawCard52, drawSlot, drawSuit4, felt, CW, CH } from '../../ui/cards52.
 import * as R from './rules.js';
 
 const SIZE = 252;
+const HGT = 315; // mesa mais alta que larga: as colunas cabem com folga
 const STEP = 36;
 const X0 = Math.round((SIZE - (7 * CW + 6 * (STEP - CW))) / 2);
 const TOP = 4;
@@ -44,13 +45,13 @@ function layout(s) {
   s.tab.forEach((col, i) => {
     const downs = col.filter((x) => !x.up).length;
     const ups = col.length - downs;
-    const need = downs * 5 + Math.max(0, ups - 1) * 12;
-    const avail = SIZE - 3 - TAB_Y - CH;
+    const need = downs * 6 + Math.max(0, ups - 1) * 16;
+    const avail = HGT - 3 - TAB_Y - CH;
     const f = need > avail ? avail / need : 1;
     let y = TAB_Y;
     col.forEach((x, k) => {
       items.push({ x: colX(i), y: Math.round(y), code: x.up ? x.c : -1, up: x.up, ref: x.up ? { t: 'tab', i, k } : null });
-      y += (x.up ? 12 : 5) * f;
+      y += (x.up ? 16 : 6) * f;
     });
   });
   return items;
@@ -59,7 +60,7 @@ function layout(s) {
 // ================================================================ render
 export function render(root, state, ctx) {
   ui.last = { root, state, ctx };
-  if (DEBUG) window.__pq = { state, ctx, layout: () => layout(state), SIZE };
+  if (DEBUG) window.__pq = { state, ctx, layout: () => layout(state), SIZE, HGT };
   if (!ui.board) ui.board = new Board();
   const mine = state.players[0].id === ctx.me; // quem assiste não mexe
   if (!mine || (ui.sel && !R.pick(state, ui.sel))) ui.sel = null;
@@ -78,7 +79,7 @@ export function render(root, state, ctx) {
   const lay = tableLayout({ shared: false, sideA: [], sideB: [panel], center: ui.board.canvas, log: logBar([`${{ facil: 'Fácil', medio: 'Médio', dificil: 'Difícil' }[state.opts.nivel]}: tira ${state.drawN} por vez.`], RULES) });
   lay.classList.add('one-side');
   root.replaceChildren(lay);
-  fitTable(lay, ui.board.canvas, SIZE, ui.board, { sides: 1 });
+  fitTable(lay, ui.board.canvas, SIZE, ui.board, { sides: 1, aspect: HGT / SIZE, mine: 120, mineW: 220 });
 }
 
 function rerender() {
@@ -165,7 +166,7 @@ function controlsPanel(state, ctx) {
 // ============================================================ mesa
 class Board {
   constructor() {
-    this.canvas = pixelCanvas(SIZE, SIZE, 'pq-board');
+    this.canvas = hiCanvas(SIZE, HGT, 'pq-board');
     this.canvas.setAttribute('role', 'img');
     this.canvas.setAttribute('aria-label', 'Mesa do solitário');
     this.g = this.canvas.getContext('2d');
@@ -204,7 +205,7 @@ class Board {
     if (!this.onTap) return;
     const r = this.canvas.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width) * SIZE;
-    const y = ((e.clientY - r.top) / r.height) * SIZE;
+    const y = ((e.clientY - r.top) / r.height) * HGT;
     // Carta de cima primeiro (ordem inversa de desenho).
     for (let k = this.items.length - 1; k >= 0; k--) {
       const it = this.items[k];
@@ -318,15 +319,15 @@ function makeConfetti() {
 function drawConfetti(g, cf, t) {
   const sec = (t - cf.start) / 1000;
   for (const b of cf.bits) {
-    const y = (b.y + sec * b.v) % (SIZE + 20);
+    const y = (b.y + sec * b.v) % (HGT + 20);
     const x = b.x + Math.sin(sec * 3 + b.w) * 6;
     g.fillStyle = b.c;
     g.fillRect(Math.round(x), Math.round(y), 2, 3);
   }
   // Troféu no meio.
   const label = '52';
-  g.fillStyle = 'rgba(10,12,22,.7)'; g.fillRect(SIZE / 2 - 30, SIZE / 2 - 18, 60, 36);
-  drawText(g, label, Math.round(SIZE / 2 - textWidth(label, 3) / 2), SIZE / 2 - 10, PAL.gold, PAL.ink, 3);
+  g.fillStyle = 'rgba(10,12,22,.7)'; g.fillRect(SIZE / 2 - 30, HGT / 2 - 18, 60, 36);
+  drawText(g, label, Math.round(SIZE / 2 - textWidth(label, 3) / 2), HGT / 2 - 10, PAL.gold, PAL.ink, 3);
 }
 
 let bg = null;
@@ -334,7 +335,7 @@ function background() {
   if (bg) return bg;
   bg = document.createElement('canvas');
   bg.width = SIZE;
-  bg.height = SIZE;
-  felt(bg.getContext('2d'), SIZE, SIZE);
+  bg.height = HGT;
+  felt(bg.getContext('2d'), SIZE, HGT);
   return bg;
 }

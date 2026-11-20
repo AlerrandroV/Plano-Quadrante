@@ -1,7 +1,7 @@
 // Interface do Poker (Texas Hold'em), na mesma "mesa" dos outros jogos.
 // Cada um vê só as próprias cartas; no showdown, as de quem chegou até o fim.
 import { h } from '../../ui/dom.js';
-import { PAL, pixelCanvas, drawText, textWidth } from '../../ui/pixel.js';
+import { hiCanvas, PAL, pixelCanvas, drawText, textWidth } from '../../ui/pixel.js';
 import { tableLayout, fitTable, setTurnColor, playerPanel, spectatorPanel, btn, logBar } from '../../ui/table.js';
 import { sfx } from '../../ui/sound.js';
 import { drawCard52, drawSlot, felt, CW, CH, RANK_LABEL } from '../../ui/cards52.js';
@@ -87,7 +87,7 @@ function miniCards(state, i) {
   if (!p.hole.length || p.out) return null;
   const wrap = h('span', { class: 'pk-hole' + (p.folded ? ' folded' : '') });
   for (const c of p.hole) {
-    const cv = pixelCanvas(CW, CH, 'pk-mini');
+    const cv = hiCanvas(CW, CH, 'pk-mini');
     drawCard52(cv.getContext('2d'), 0, 0, c, { back: c < 0 });
     wrap.append(cv);
   }
@@ -193,7 +193,7 @@ function controlsPanel(state, ctx, meIdx, myTurn) {
 
   const hole = me && me.hole.length ? h('div', { class: 'pk-myhand' },
     h('div', { class: 'pk-mycards' }, me.hole.map((c) => {
-      const cv = pixelCanvas(CW + 4, CH + 4, 'pk-card');
+      const cv = hiCanvas(CW + 4, CH + 4, 'pk-card');
       const best = state.phase === 'showdown' && state.results.hands?.[meIdx]?.best;
       drawCard52(cv.getContext('2d'), 2, 2, c, { back: c < 0, glow: best && best.includes(c) ? PAL.gold : null, dim: me.folded });
       return cv;
@@ -213,7 +213,7 @@ const ROW_X = Math.round((SIZE - (5 * CW + 4 * 3)) / 2);
 
 class Board {
   constructor() {
-    this.canvas = pixelCanvas(SIZE, SIZE, 'pq-board');
+    this.canvas = hiCanvas(SIZE, SIZE, 'pq-board');
     this.canvas.setAttribute('role', 'img');
     this.canvas.setAttribute('aria-label', 'Mesa do poker');
     this.g = this.canvas.getContext('2d');

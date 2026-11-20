@@ -8,13 +8,23 @@
 //   Difícil -> isso e mais: pesa cada par pelas cartas que ainda podem sair
 //              (as que estão no descarte já eram) e prefere pares com mais
 //              chances.
+// Todos guardam os melés (curingas) e, armados, batem com o descarte fora
+// da vez: o Fácil às vezes demora, o Difícil nunca perde a chance.
 import * as P from '../games/pife/rules.js';
 import { rankOf, suitOf } from '../ui/cards52.js';
+
+const CLAIM = { facil: 0.35, medio: 0.75, dificil: 1 };
+let W = P.isJoker; // "é curinga?" da partida em que o robô está pensando
 
 export function decide(state, botId, level = 'medio') {
   if (state.phase === 'over') return null;
   const me = state.players.findIndex((p) => p.id === botId);
-  if (me < 0 || state.turn !== me) return null;
+  if (me < 0) return null;
+  W = P.wildFn(state);
+  // Fora da vez (ou antes de comprar): bate com a carta do descarte?
+  const claim = P.claimable(state, me);
+  if (claim != null && Math.random() < CLAIM[level]) return { type: 'claim', card: claim };
+  if (state.turn !== me) return null;
   const p = state.players[me];
   const hand = p.hand;
   const dead = deadCards(state, hand);
@@ -23,17 +33,17 @@ export function decide(state, botId, level = 'medio') {
     if (P.canNoPair(state, me)) return { type: 'nopair' };
     const top = state.discard[state.discard.length - 1];
     if (top == null) return { type: 'draw', from: 'deck' };
-    // Com a carta do descarte, bate? (não vale descartá-la de volta)
-    if (!p.choque && P.findWin([...hand, top], state.house, { exclude: top })) return { type: 'draw', from: 'discard' };
+    // Melé no descarte: só serve para bater (já tratado acima).
+    if (W(top)) return { type: 'draw', from: 'deck' };
     if (level === 'facil') return { type: 'draw', from: Math.random() < 0.15 && helps(hand, top, dead, level) ? 'discard' : 'deck' };
     return { type: 'draw', from: helps(hand, top, dead, level) ? 'discard' : 'deck' };
   }
 
   // Descarte (ou batida).
   const blocked = p.choque && state.drewFrom === 'discard';
-  const w = !blocked && P.findWin(hand, state.house, { exclude: state.took });
+  const w = !blocked && P.findWin(hand, state.house, { exclude: state.took, W });
   if (w) return { type: 'bater', groups: w.groups, discard: w.discard };
-  const options = hand.filter((id) => id !== state.took && !P.isJoker(id));
+  const options = hand.filter((id) => id !== state.took && !W(id)); // melé não se joga fora
   const pool = options.length ? options : hand.filter((id) => id !== state.took);
   if (level === 'facil' && Math.random() < 0.5) {
     // Joga fora qualquer carta que não esteja num jogo pronto.
@@ -45,7 +55,7 @@ export function decide(state, botId, level = 'medio') {
   // Difícil: não alimenta o próximo (cartas que combinam com o que ele já
   // pegou do descarte).
   const nxt = state.players[(me + 1) % state.players.length];
-  const feeds = (id) => (nxt.picked || []).some((t) => !P.isJoker(t) && pairWorth(P.code(t), P.code(id), dead, 'medio') > 0);
+  const feeds = (id) => (nxt.picked || []).some((t) => !W(t) && pairWorth(P.code(t), P.code(id), dead, 'medio') > 0);
   let best = null;
   for (const id of pool) {
     let v = value(hand.filter((x) => x !== id), dead, level) + Math.random() * 0.3;
@@ -85,7 +95,7 @@ export function bestMelds(hand) {
     for (let j = i + 1; j < hand.length; j++) {
       for (let k = j + 1; k < hand.length; k++) {
         const t = [hand[i], hand[j], hand[k]];
-        if (P.isMeld(t)) trios.push(t);
+        if (P.isMeld(t, W)) trios.push(t);
       }
     }
   }
@@ -112,9 +122,9 @@ function value(cards, dead, level) {
   const used = new Set(melds.flat());
   const rest = cards.filter((x) => !used.has(x));
   let v = melds.length * 40;
-  const jokers = rest.filter(P.isJoker).length;
+  const jokers = rest.filter(W).length;
   v += jokers * 14;
-  const plain = rest.filter((x) => !P.isJoker(x));
+  const plain = rest.filter((x) => !W(x));
   const usedPair = new Set();
   // Pares: melhores primeiro (cada carta entra em um par só).
   const pairs = [];
