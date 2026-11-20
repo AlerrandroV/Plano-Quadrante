@@ -644,3 +644,25 @@ canvas.shrunk, .game-art.small, .game-art.tiny { image-rendering: auto; }
   60% { transform: translate(-4px, 0); } 80% { transform: translate(4px, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .pq-panel.uc-shake { animation: none; } }
+
+/* Pife: caixa de 9 lugares e 3 caixas de jogos */
+.pf-ctl { flex-direction: column; gap: 6px; }
+.pf-boxes { --cw: 32px; display: grid; gap: 6px; justify-items: center; width: 100%; }
+.pf-box { display: grid; gap: 3px; padding: 3px; border: 2px solid rgba(148,176,194,.35); background: rgba(10,12,22,.35); }
+.pf-main { grid-template-columns: repeat(9, var(--cw)); }
+.pf-games { display: flex; gap: 6px; justify-content: center; }
+.pf-game { grid-template-columns: repeat(3, var(--cw)); }
+.pf-game.ok { border-color: #38b764; background: rgba(56,183,100,.18); }
+.pf-game.bad { border-color: var(--danger); }
+.pf-boxes.tall .pf-main { grid-template-columns: repeat(3, var(--cw)); }
+.pf-boxes.tall .pf-games { flex-direction: column; }
+.pf-slot { padding: 0; border: 0; background: none; line-height: 0; cursor: pointer; }
+.pf-slot.sel { transform: translateY(-3px); }
+.pf-card { width: var(--cw); height: calc(var(--cw) * 50 / 36); image-rendering: pixelated; }
+/* Mesa "mão primeiro" (Pife): o seu painel ganha a maior parte do espaço. */
+.pq.hand-heavy { grid-template-rows: minmax(0, .55fr) var(--board, 200px) minmax(0, 1.45fr) auto; }
+.pq.hand-heavy.landscape { grid-template-columns: minmax(0, .75fr) var(--board, 200px) minmax(0, 1.5fr); grid-template-rows: minmax(0, 1fr) auto; }
+.pf-ctl.pf-terse .pq-message p { display: none; }
+.pf-ctl.pf-side { flex-direction: row; }
+.pf-ctl.pf-side .pf-boxes { width: auto; flex: 1; }
+.pf-ctl.pf-side .pq-message { flex: 0 0 180px; }

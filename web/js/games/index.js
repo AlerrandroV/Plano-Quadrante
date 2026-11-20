@@ -24,6 +24,9 @@ import * as dominoUi from './domino/ui.js';
 import * as ucRules from './ultima-carta/rules.js';
 import * as ucUi from './ultima-carta/ui.js';
 import { drawCard } from './ultima-carta/cards.js';
+import * as pifeRules from './pife/rules.js';
+import * as pifeUi from './pife/ui.js';
+import { drawCard52, codeOf, JOKER } from '../ui/cards52.js';
 import { PAL, TEAM, drawSpider, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
 export const ART_W = 128; // 2x
@@ -78,6 +81,19 @@ export const GAMES = [
     options: ucRules.OPTIONS,
     seatHint: () => '',
     art: artCartas,
+  },
+  {
+    ...pifeRules,
+    render: pifeUi.render,
+    help: pifeUi.RULES,
+    id: 'pife',
+    name: 'Pife',
+    kind: 'Cartas · tradicional ou da casa',
+    spectators: true,
+    noSharedScreen: true,
+    options: pifeRules.OPTIONS,
+    seatHint: () => '',
+    art: artPife,
   },
 ];
 
@@ -182,4 +198,15 @@ function artCartas(g) {
   drawCard(g, 62, 18, find('gota', 'pula'));
   drawCard(g, 82, 26, find('folha', 'n', 3));
   drawCard(g, 96, 8, find(null, 'mais4'));
+}
+
+function artPife(g) {
+  g.fillStyle = '#1d4a3a'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#163a2d';
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
+  // Uma sequência (7-8-9 de copas) e uma trinca com melé.
+  [[2, 7], [2, 8], [2, 9]].forEach(([s, r], i) => drawCard52(g, 4 + i * 18, 6 + i * 3, codeOf(s, r)));
+  drawCard52(g, 70, 26, codeOf(3, 13));
+  drawCard52(g, 82, 22, codeOf(0, 13));
+  drawCard52(g, 94, 18, JOKER);
 }
