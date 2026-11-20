@@ -534,7 +534,7 @@ main:has(.room) > .room-footer { margin-top: 0; margin-bottom: 0; }
 
 /* Celular deitado: "Jogadores" e as opções do jogo lado a lado. */
 @media (orientation: landscape) and (max-height: 520px) {
-  .setup-card { grid-template-columns: 1fr 1fr; align-items: center; }
+  .setup-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
   .setup-card > :not(.seg):not(.game-options) { grid-column: 1 / -1; }
   .setup-card:not(:has(.game-options)) > .seg { grid-column: 1 / -1; }
 }
@@ -576,3 +576,60 @@ canvas.shrunk, .game-art.small, .game-art.tiny { image-rendering: auto; }
 .game-art { width: 128px; height: 80px; }
 .game-art.small { width: 96px; height: 60px; }
 .game-art.tiny { width: 64px; height: 40px; }
+
+/* Última Carta: mão de cartas, cores e botões de "Última!" / "Pegar" */
+.uc-ctl { flex-direction: column; gap: 6px; }
+.uc-hand { --ov: 0px; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; width: 100%; }
+.uc-hand.tight { flex-wrap: nowrap; gap: 0; }
+.uc-hand.tight .uc-card-btn + .uc-card-btn { margin-left: calc(var(--ov) * -1); }
+.uc-card-btn { padding: 0; border: 0; background: none; cursor: pointer; line-height: 0; flex: none; position: relative; }
+.uc-card-btn:disabled { cursor: default; }
+.uc-card-btn.can { transform: translateY(-3px); }
+.uc-card-btn.can:hover { z-index: 1; }
+.uc-card { width: 54px; height: 75px; image-rendering: pixelated; }
+.uc-suit { width: 18px; height: 18px; image-rendering: pixelated; vertical-align: middle; margin-right: 6px; }
+.uc-suit-btn { color: var(--white); }
+.uc-suit-btn.suit-chama { background: #e0403a; border-bottom-color: #7a1c22; }
+.uc-suit-btn.suit-gota { background: #3b74d9; border-bottom-color: #1e3478; }
+.uc-suit-btn.suit-folha { background: #3aa95a; border-bottom-color: #185a3c; }
+.uc-suit-btn.suit-sol { background: #f29a26; border-bottom-color: #8a4a12; }
+.px-btn.gold { background: var(--gold); border-bottom-color: #c98b3a; }
+.px-btn.danger { background: var(--danger); color: var(--white); border-bottom-color: #8a1a2c; }
+.pq-tag.alert { background: var(--danger); color: var(--white); }
+@container ctl (max-height: 190px) {
+  .uc-card { width: 36px; height: 50px; }
+  .uc-ctl { gap: 3px; }
+}
+.flag-list { display: grid; gap: 6px; }
+.px-btn.flag { display: flex; align-items: center; gap: 10px; text-align: left; width: calc(100% - 2 * var(--px)); }
+.flag-box { flex: none; width: 18px; height: 18px; border: var(--px) solid var(--ink); background: var(--white); display: grid; place-items: center; font-size: 10px; }
+.flag-text { display: grid; gap: 4px; }
+.flag-text small { font: 18px/1 var(--text); }
+.pq-buttons.uc-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 100%; max-width: 360px; }
+.pq-buttons.uc-choices .px-btn { font-size: 9px; padding: 7px 6px; margin: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pq-buttons.uc-choices .uc-suit { width: 14px; height: 14px; margin-right: 4px; }
+/* Você x robôs: robôs compactos, lado a lado */
+.seats.bots { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px 10px; }
+.seat.compact .row { gap: 6px; }
+.seat.compact .who { flex: 1; }
+.seg.many .px-btn { padding-left: 4px; padding-right: 4px; }
+.seg .flags-open { flex: 0 0 auto; font-size: 10px; padding-left: 8px; padding-right: 8px; }
+/* Preparação com muitas opções/lugares: usa a largura do celular deitado e
+   esconde as dicas em telas baixas. */
+@media (orientation: landscape) and (max-height: 520px) {
+  main:has(.setup-card) { max-width: 860px; }
+  .seats.bots { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+}
+@media (max-height: 760px) {
+  .setup-card .option-hint, .setup-card .hint { display: none; }
+}
+.seats.bots > .seat:not(.compact) { grid-column: 1 / -1; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .seats.bots > .seat:not(.compact) { grid-column: span 2; }
+  .seats.bots > .seat:not(.compact) .seat-color { display: none; }
+  .setup-card .seg .px-btn { white-space: nowrap; padding-top: 6px; padding-bottom: 6px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .setup-card .game-options .seg .px-btn { font-size: 10px; padding-left: 6px; padding-right: 6px; }
+}
+.uc-card-btn.can { z-index: 1; }

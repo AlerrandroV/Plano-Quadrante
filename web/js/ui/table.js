@@ -179,6 +179,17 @@ const ICONS = {
     '.KKKKKKK.',
     '.........',
   ],
+  carta: [
+    '.KKKKKK..',
+    '.KWWWWK..',
+    '.KWGGWKK.',
+    '.KWGGWKWK',
+    '.KWWWWKWK',
+    '.KKKKKKWK',
+    '..KWWWWWK',
+    '..KKKKKKK',
+    '.........',
+  ],
   trofeu: [
     'GGGGGGGGG',
     'GKGGGGGKG',

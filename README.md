@@ -11,6 +11,7 @@ identidade visual.
 | **Domínio da Teia** (antes "Plano Quadrante") | 2 a 4 | sim |
 | **Damas** (regras brasileiras, 8×8) | 2 | sim |
 | **Dominó** (batida ou pontos) | 2 a 4 | sim (só na sala Wi-Fi ou você contra robôs) |
+| **Última Carta** (cartas; regras oficiais ou de rua) | 2 a 6 | sim (só na sala Wi-Fi ou você contra robôs) |
 
 O mesmo código roda de três jeitos, e **descobre sozinho** em qual está:
 
@@ -135,7 +136,8 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/ui/platform.js       catálogo, seletor de cores, placar
   js/ui/colors.js         as 10 cores e a regra de cores únicas
   js/games/domino/rules.js, ui.js
-  js/bots/                robôs (damas: alfa-beta; Domínio da Teia: perigo; dominó: memória e bloqueio) + Web Worker
+  js/games/ultima-carta/rules.js, ui.js, cards.js (cartas em pixel art)
+  js/bots/                robôs (damas: alfa-beta; Domínio da Teia: perigo; dominó: memória e bloqueio; Última Carta: ataque e memória de cores) + Web Worker
   js/ui/modal.js          janelas do próprio jogo (no lugar de confirm/prompt/dialog do navegador)
   js/modes/menu.js        menu do app: Mesma tela / Criar sala / Entrar numa sala (código ou salas na rede)
   js/ui/sound.js          efeitos sonoros 16 bits sintetizados (Web Audio, sem arquivos)
@@ -239,6 +241,17 @@ Na batida, a sorte da distribuição pesa bastante (é uma rodada só). Mesmo
 assim, o Difícil vence o Fácil em ~68% das partidas e o Médio em ~61%. No
 modo pontos, o Médio vence o Fácil em ~80%.
 
+**Última Carta** (`web/js/bots/ultima-carta.js`): o robô só enxerga a própria mão.
+- **Fácil:** joga qualquer carta que sirva; às vezes esquece de gritar "Última!" e raramente pega quem esqueceu.
+- **Médio:** guarda os Coringas, solta cartas que valem mais pontos e escolhe a cor de que tem mais.
+- **Difícil:** tudo isso e mais:
+  - **Memória de cores:** lembra em que cor cada um teve que comprar e deixa a mesa nessa cor.
+  - **Ataque:** usa Pula, +2 e +4 em quem está perto de bater; com 2 jogadores, encadeia jogadas.
+  - **Desafio:** desafia o +4 quando quem jogou tinha muitas cartas (mais chance de blefe).
+
+É um jogo de muita sorte: o Médio vence o Fácil em ~63% das partidas, o
+Difícil vence o Médio em ~56% e o Fácil em ~68% (simulação, 2 jogadores).
+
 ## Dominó
 
 Dominó duplo-seis (28 peças), de 2 a 4 jogadores, 7 peças para cada um.
@@ -259,6 +272,34 @@ Dominó duplo-seis (28 peças), de 2 a 4 jogadores, 7 peças para cada um.
 celular de quem joga recebe apenas as próprias peças (dos outros, só a
 quantidade). No site e na opção *Mesma tela* do app, o dominó é só **você
 contra robôs**. Para jogar com amigos, use a sala Wi-Fi.
+
+## Última Carta
+
+Jogo de cartas de descarte, da família do *Crazy Eights* e do *Mau-Mau*,
+com nome, naipes e cartas próprios da plataforma. 108 cartas em 4 naipes
+(**Chama**, **Gota**, **Folha** e **Sol**): um 0 e dois de cada 1 a 9,
+dois **Pula**, dois **Volta** e dois **+2** por naipe, mais 4 **Coringas** e
+4 **Coringas +4**. De 2 a 6 jogadores, 7 cartas para cada.
+
+**Regras oficiais** (padrão):
+- **Na vez:** jogue uma carta da mesma cor ou do mesmo número/símbolo da carta da mesa, ou um Coringa. Sem jogar, compre 1; se ela servir, pode jogar na hora; se não, passa.
+- **Pula:** o próximo perde a vez. **Volta:** inverte o sentido; com 2 jogadores, vale como Pula. **+2:** o próximo compra 2 e perde a vez. **Coringa:** escolhe a cor.
+- **+4:** escolhe a cor; o próximo compra 4 e perde a vez. Só vale sem carta da cor da mesa. O próximo pode **desafiar**: se quem jogou tinha a cor, ele compra 4; se não tinha, o desafiante compra 6.
+- **Carta virada no começo:** Pula, Volta, +2 e Coringa valem para o primeiro jogador; um +4 volta para o monte.
+- **"Última!":** ao ficar com 1 carta, aperte o botão. Se alguém apertar **Pegar** antes de o próximo jogar, você compra 2.
+- **Vitória:** quem ficar sem cartas. No modo **500 pontos**, quem bate ganha os pontos das mãos dos outros (número = valor; Pula, Volta e +2 = 20; Coringas = 50).
+
+**Regras de rua** (as mais citadas em fóruns; o mestre liga as que quiser):
+- **Empilhar +2/+4:** recebeu +2? Jogue outro +2 (ou um +4) e a compra acumulada passa adiante. Um +4 sobre outro +4 também.
+- **Corte:** quem tem a carta idêntica à da mesa (mesma cor e número) joga fora da vez, e o jogo segue a partir dele.
+- **7 troca, 0 gira:** o 7 troca a sua mão com a de quem você escolher; o 0 gira todas as mãos no sentido do jogo.
+- **Compra até jogar:** sem carta que sirva, compra até achar uma.
+- **Bate com número:** a última carta não pode ser especial.
+- **+4 sem desafio:** o +4 vale a qualquer hora e ninguém desafia.
+
+Como o dominó, **não tem modo de mesma tela**: cada celular recebe só a
+própria mão. Quem jogou um +4 também não revela se tinha a cor (só o
+servidor sabe, para julgar o desafio).
 
 ## Convites e app com app
 
