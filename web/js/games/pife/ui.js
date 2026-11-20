@@ -2,7 +2,7 @@
 // numa caixa de 9 lugares e 3 caixas de 3 lugares (os jogos). O jogador
 // arruma as cartas como quiser: toque numa carta e depois noutro lugar.
 import { h } from '../../ui/dom.js';
-import { PAL, pixelCanvas, drawText, textWidth } from '../../ui/pixel.js';
+import { hiCanvas, PAL, pixelCanvas, drawText, textWidth } from '../../ui/pixel.js';
 import { tableLayout, fitTable, setTurnColor, playerPanel, spectatorPanel, btn, logBar } from '../../ui/table.js';
 import { sfx } from '../../ui/sound.js';
 import { drawCard52, drawSlot, felt, CW, CH, rankOf, suitOf } from '../../ui/cards52.js';
@@ -219,7 +219,7 @@ function onSlotTap(i) {
 
 function slotButton(state, i, myTurn) {
   const id = ui.slots[i];
-  const c = pixelCanvas(CW + 4, CH + 4, 'pf-card');
+  const c = hiCanvas(CW + 4, CH + 4, 'pf-card');
   const g = c.getContext('2d');
   if (id == null) drawSlot(g, 2, 2);
   else {
@@ -290,7 +290,7 @@ const DISC = { x: SIZE / 2 + 18, y: SIZE / 2 - CH / 2 };
 
 class Board {
   constructor() {
-    this.canvas = pixelCanvas(SIZE, SIZE, 'pq-board');
+    this.canvas = hiCanvas(SIZE, SIZE, 'pq-board');
     this.canvas.setAttribute('role', 'img');
     this.canvas.setAttribute('aria-label', 'Mesa: monte e descarte');
     this.g = this.canvas.getContext('2d');

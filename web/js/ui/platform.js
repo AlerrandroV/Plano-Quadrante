@@ -1,14 +1,14 @@
 // Peças da PLATAFORMA (iguais em todas as telas): catálogo de jogos,
 // seletor de cor das peças e placar da sala.
 import { h } from './dom.js';
-import { pixelCanvas, drawPawn, PAWN_W, PAWN_H } from './pixel.js';
+import { hiCanvas, pixelCanvas, drawPawn, PAWN_W, PAWN_H } from './pixel.js';
 import { COLOR_ORDER, COLOR_LABEL } from './colors.js';
 import { GAMES, ART_W, ART_H, capacityText } from '../games/index.js';
 import { statIcon } from './table.js';
 import { showModal } from './modal.js';
 
 export function gameArt(game, cls = 'game-art') {
-  const c = pixelCanvas(ART_W, ART_H, cls);
+  const c = hiCanvas(ART_W, ART_H, cls);
   game.art(c.getContext('2d'));
   return c;
 }

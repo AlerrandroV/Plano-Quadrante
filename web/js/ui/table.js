@@ -39,8 +39,9 @@ export function tableLayout({ shared, sideA, sideB, center, log }) {
  *
  * cap(W, H, landscape): tamanho máximo da mesa (opcional).
  * sides: quantos lados têm painéis (1 = jogo de uma pessoa só).
+ * aspect: altura / largura da mesa (1 = quadrada).
  */
-export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2, mine = 190, mineW = 250 } = {}) {
+export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2, mine = 190, mineW = 250, aspect = 1 } = {}) {
   const run = () => {
     if (!pq.isConnected) return;
     const W = pq.clientWidth;
@@ -63,10 +64,10 @@ export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2, mi
       if (landscape) {
         const wA = hasA ? Math.round(Math.max(150, Math.min(210, W * 0.19))) : 0;
         pq.style.setProperty('--sideA', `${wA}px`);
-        S = Math.min(H - logH, W - wA - mineW - (hasA ? 2 : 1) * gap);
+        S = Math.min((H - logH) / aspect, W - wA - mineW - (hasA ? 2 : 1) * gap);
       } else {
         const hA = hasA ? sideA.offsetHeight : 0;
-        S = Math.min(W - 4, H - logH - hA - mine - (hasA ? 2 : 1) * gap);
+        S = Math.min(W - 4, (H - logH - hA - mine - (hasA ? 2 : 1) * gap) / aspect);
       }
     }
     // Jogos em que a mão importa mais que a mesa limitam o tamanho da mesa.
@@ -77,8 +78,9 @@ export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2, mi
     // Reduzir em modo pixelado apaga linhas finas: abaixo de 100%, suaviza.
     canvas.classList.toggle('shrunk', k < 1);
     pq.style.setProperty('--board', `${size}px`);
+    pq.style.setProperty('--board-h', `${Math.floor(size * aspect)}px`);
     canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
+    canvas.style.height = `${Math.floor(size * aspect)}px`;
   };
   run();
   holder.ro?.disconnect();

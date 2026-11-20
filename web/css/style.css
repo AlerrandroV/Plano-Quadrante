@@ -742,3 +742,5 @@ main:has(.pq) { padding-left: 6px; padding-right: 6px; }
   main:has(.pq) > .toolbar .tools { flex-direction: column; align-items: stretch; }
   main:has(.pq) > .game, main:has(.pq) > .stage { flex: 1; min-width: 0; }
 }
+.pq.personal { grid-template-rows: auto var(--board-h, var(--board, 300px)) minmax(0, 1fr) auto; }
+.pq.personal.one-side { grid-template-rows: var(--board-h, var(--board, 300px)) minmax(0, 1fr) auto; }
