@@ -15,13 +15,13 @@
 // No registro: options (variações escolhidas antes da partida) e
 // noSharedScreen (jogos com mão escondida: nada de várias pessoas na
 // mesma tela; no modo local, só uma pessoa contra robôs).
-import * as pqRules from './plano-quadrante/rules.js';
-import * as pqUi from './plano-quadrante/ui.js';
+import * as pqRules from './dominio-da-teia/rules.js';
+import * as pqUi from './dominio-da-teia/ui.js';
 import * as damasRules from './damas/rules.js';
 import * as damasUi from './damas/ui.js';
 import * as dominoRules from './domino/rules.js';
 import * as dominoUi from './domino/ui.js';
-import { PAL, TEAM, drawPawn, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
+import { PAL, TEAM, drawSpider, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
 export const ART_W = 128; // 2x
 export const ART_H = 80;
@@ -31,12 +31,12 @@ export const GAMES = [
     ...pqRules,
     render: pqUi.render,
     help: pqUi.RULES,
-    id: 'plano-quadrante',
-    name: 'Plano Quadrante',
-    kind: 'Tabuleiro · dados',
+    id: 'dominio-da-teia',
+    name: 'Domínio da Teia',
+    kind: 'Teia · dados',
     spectators: true,
     seatHint: (n, i) => (['azul', 'vermelho'].includes(pqRules.defaultColors(n)[i]) ? 'em cima' : 'embaixo'),
-    art: artPlanoQuadrante,
+    art: artTeia,
   },
   {
     ...damasRules,
@@ -74,8 +74,12 @@ export function optionsText(game, opts = {}) {
   return (game.options || []).map((o) => o.choices.find((c) => c.id === (opts[o.id] ?? o.default))?.label).filter(Boolean).join(' · ');
 }
 
+// Ids antigos (salas e preferências salvas antes de o jogo mudar de nome).
+const OLD_IDS = { 'plano-quadrante': 'dominio-da-teia' };
+
 export function getGame(id) {
-  return GAMES.find((g) => g.id === id) || null;
+  const real = OLD_IDS[id] || id;
+  return GAMES.find((g) => g.id === real) || null;
 }
 
 export function capacityText(game) {
@@ -85,20 +89,30 @@ export function capacityText(game) {
 
 // ------------------------------------------------------- ilustrações
 // 128x80, desenhadas com as mesmas peças dos jogos.
-function artPlanoQuadrante(g) {
+function artTeia(g) {
   g.fillStyle = PAL.ink; g.fillRect(0, 0, ART_W, ART_H);
-  g.fillStyle = '#20253d'; g.fillRect(4, 4, 72, 72);
-  g.fillStyle = '#323a5d';
-  for (let v = 12; v < 76; v += 8) { g.fillRect(v, 6, 1, 68); g.fillRect(6, v, 68, 1); }
-  g.fillStyle = PAL.steel; g.fillRect(40, 6, 2, 68); g.fillRect(6, 40, 68, 2);
-  const band = (c, x, y, w, h) => { g.fillStyle = TEAM[c].base; g.fillRect(x, y, w, h); };
-  band('azul', 4, 4, 72, 3); band('verde', 4, 73, 72, 3); band('vermelho', 4, 4, 3, 72); band('laranja', 73, 4, 3, 72);
-  g.fillStyle = PAL.gold; g.fillRect(39, 39, 4, 4);
-  drawPawn(g, 12, 6, 'azul');
-  drawPawn(g, 44, 30, 'laranja', { level: 2 });
-  drawPawn(g, 18, 46, 'verde');
-  drawDie(g, 82, 2, 3, 'vermelho');
-  drawDie(g, 82, 38, 2, 'azul');
+  // Teia: fios curvos para os eixos, eixos retos, miolo dourado.
+  const cx = 40; const cy = 40; const st = 9;
+  const dot = (x, y, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), 1, 1); };
+  const thread = (ax, ay, bx, by, kx, ky, c) => {
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      dot((1 - t) ** 2 * ax + 2 * (1 - t) * t * kx + t * t * bx, (1 - t) ** 2 * ay + 2 * (1 - t) * t * ky + t * t * by, c);
+    }
+  };
+  for (let j = -4; j <= 4; j++) {
+    for (let i = -4; i < 4; i++) {
+      if (j !== 0) { const y = cy - j * st; const tw = j > 0 ? 3 : -3; thread(cx + i * st, y, cx + (i + 1) * st, y, cx + (i + 0.5) * st, y + tw, j === 4 ? TEAM.azul.light : j === -4 ? TEAM.verde.light : '#9aa6c4'); }
+      if (j !== 0) { const x = cx + j * st; const tw = j > 0 ? -3 : 3; thread(x, cy - i * st, x, cy - (i + 1) * st, x + tw, cy - (i + 0.5) * st, j === 4 ? TEAM.laranja.light : j === -4 ? TEAM.vermelho.light : '#9aa6c4'); }
+    }
+  }
+  g.fillStyle = '#dfe6f5'; g.fillRect(cx, cy - 36, 1, 72); g.fillRect(cx - 36, cy, 72, 1);
+  g.fillStyle = PAL.gold; g.fillRect(cx - 2, cy - 2, 5, 5);
+  drawSpider(g, cx - 2 * st - 12, cy - 2 * st - 11, 'azul');
+  drawSpider(g, cx + st - 12, cy + st - 11, 'laranja', { level: 2 });
+  drawSpider(g, cx + 3 * st - 12, cy - 3 * st - 11, 'verde');
+  drawDie(g, 84, 2, 3, 'vermelho');
+  drawDie(g, 84, 38, 2, 'azul');
 }
 
 function artDamas(g) {

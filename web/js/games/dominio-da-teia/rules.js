@@ -1,9 +1,13 @@
 // ===================================================================
-//  PLANO QUADRANTE — regras (lógica pura, sem tela)
+//  DOMÍNIO DA TEIA — regras (lógica pura, sem tela)
+//  (antes chamado "Plano Quadrante", como o app)
 //
-//  Baseado no protótipo original (script.js), no manual e nas Regras
-//  Oficiais (PDF). Onde os três discordam, a escolha está marcada com
-//  "DECISÃO" e resumida no README.
+//  As peças são aranhas numa teia 9x9. Baseado no protótipo original
+//  (script.js), no manual e nas Regras Oficiais (PDF). Onde os três
+//  discordam, a escolha está marcada com "DECISÃO" e resumida no README.
+//
+//  A teia NÃO é infinita: um movimento que sairia dela não pode ser feito,
+//  e o bônus de nível anda em linha reta só até a borda.
 //
 //  Coordenadas: x e y de -4 a 4 (81 interseções), centro = (0, 0).
 //  Dado quente -> eixo x: vermelho = esquerda (-), laranja = direita (+)
@@ -12,11 +16,10 @@
 
 import { assignColors } from '../../ui/colors.js';
 
-export const meta = { id: 'plano-quadrante', name: 'Plano Quadrante', minPlayers: 2, maxPlayers: 4 };
+export const meta = { id: 'dominio-da-teia', name: 'Domínio da Teia', minPlayers: 2, maxPlayers: 4 };
 
 export const MIN = -4;
 export const MAX = 4;
-const SIZE = MAX - MIN + 1;
 export const PIECES_PER_PLAYER = 8;
 export const MAX_LEVEL = 4;
 
@@ -39,17 +42,18 @@ export const DIRS8 = [
 export const CARDS = {
   bloqueio: { name: 'Bloqueio', text: 'Escolha um adversário: ele perde a próxima vez.', target: 'player' },
   reverso: { name: 'Reverso', text: 'Inverte a ordem de jogada.' },
-  salvar: { name: 'Salvar', text: 'Resgata uma peça sua do cativeiro inimigo para a sua reserva.', target: 'captor' },
-  mais1: { name: '+1 de nível', text: 'Aumenta em 1 o nível de uma peça sua.', target: 'own-piece' },
-  menos1: { name: '-1 de nível', text: 'Reduz em 1 o nível de uma peça inimiga.', target: 'enemy-piece' },
+  salvar: { name: 'Salvar', text: 'Resgata uma aranha sua do cativeiro inimigo para a sua reserva.', target: 'captor' },
+  mais1: { name: '+1 de nível', text: 'Aumenta em 1 o nível de uma aranha sua.', target: 'own-piece' },
+  menos1: { name: '-1 de nível', text: 'Reduz em 1 o nível de uma aranha inimiga.', target: 'enemy-piece' },
   denovo: { name: 'Jogar novamente', text: 'Depois desta ação, você joga de novo.' },
 };
 const DECK = Object.keys(CARDS);
 
 // ---------------------------------------------------------------- utils
 
-export function wrap(v) {
-  return ((((v - MIN) % SIZE) + SIZE) % SIZE) + MIN;
+/** Está dentro da teia? */
+export function inside(x, y) {
+  return x >= MIN && x <= MAX && y >= MIN && y <= MAX;
 }
 
 const rand = (n) => Math.floor(Math.random() * n);
@@ -146,6 +150,7 @@ export function legalActions(state) {
   const { x: dx, y: dy } = state.dice;
   const acts = [];
   const consider = (base, x, y) => {
+    if (!inside(x, y)) return; // a teia acaba na borda
     const occ = pieceAt(state, x, y);
     if (occ && occ.owner === me) return; // DECISÃO: não empilha (protótipo)
     acts.push({ ...base, x, y, capture: !!occ });
@@ -157,8 +162,8 @@ export function legalActions(state) {
   }
   for (const p of state.pieces) {
     if (p.owner !== me) continue;
-    consider({ type: 'move', pieceId: p.id }, wrap(p.x + dx), p.y);
-    consider({ type: 'move', pieceId: p.id }, p.x, wrap(p.y + dy));
+    consider({ type: 'move', pieceId: p.id }, p.x + dx, p.y);
+    consider({ type: 'move', pieceId: p.id }, p.x, p.y + dy);
   }
   // Remove duplicatas (ex.: mesma casa pelos dois dados).
   const seen = new Set();
@@ -182,8 +187,9 @@ export function bonusTargets(state) {
   for (const [ddx, ddy] of DIRS8) {
     let { x, y } = piece;
     for (let i = 1; i <= piece.level; i++) {
-      x = wrap(x + ddx);
-      y = wrap(y + ddy);
+      x += ddx;
+      y += ddy;
+      if (!inside(x, y)) break; // bônus para na borda da teia
       const k = `${x},${y}`;
       if (seen.has(k)) continue;
       const occ = pieceAt(state, x, y);
@@ -284,7 +290,7 @@ export function act(prev, playerId, action) {
         const piece = { id: s.nextPieceId++, owner: s.current, x: legal.x, y: legal.y, level };
         s.pieces.push(piece);
         setAnim(s, 'place', { x: 0, y: 0 }, legal, me.color, piece.id, captured);
-        log(s, `${me.name} colocou uma peça em (${legal.x}, ${legal.y})${captured ? ' e capturou!' : '.'}`);
+        log(s, `${me.name} colocou uma aranha em (${legal.x}, ${legal.y})${captured ? ' e capturou!' : '.'}`);
         s.captured = captured;
         endAction(s);
       } else {
@@ -385,19 +391,19 @@ function applyCard(s, target) {
       const captor = s.players[target];
       captor.captives.splice(captor.captives.indexOf(me.color), 1);
       me.reserve += 1; // volta como nível 0, pois entra pela reserva
-      log(s, `${me.name} resgatou uma peça do cativeiro de ${captor.name}.`);
+      log(s, `${me.name} resgatou uma aranha do cativeiro de ${captor.name}.`);
       break;
     }
     case 'mais1': {
       const p = s.pieces.find((q) => q.id === target);
       p.level = Math.min(MAX_LEVEL, p.level + 1);
-      log(s, `${me.name} subiu uma peça para o nível ${p.level}.`);
+      log(s, `${me.name} subiu uma aranha para o nível ${p.level}.`);
       break;
     }
     case 'menos1': {
       const p = s.pieces.find((q) => q.id === target);
       p.level = Math.max(0, p.level - 1);
-      log(s, `${me.name} baixou uma peça de ${s.players[p.owner].name}.`);
+      log(s, `${me.name} baixou uma aranha de ${s.players[p.owner].name}.`);
       break;
     }
     case 'denovo':
@@ -467,7 +473,7 @@ function checkEnd(s) {
       const p = s.players[i];
       if (p.reserve === 0 && s.pieces.filter((q) => q.owner === i).length <= 2) {
         p.eliminated = true;
-        log(s, `${p.name} ficou com 2 peças ou menos e foi eliminado!`);
+        log(s, `${p.name} ficou com 2 aranhas ou menos e foi eliminado!`);
         break;
       }
     }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as g from '../web/js/games/plano-quadrante/rules.js';
+import * as g from '../web/js/games/dominio-da-teia/rules.js';
 
 const two = [{ id: 'a', name: 'Ana' }, { id: 'b', name: 'Beto' }];
 
@@ -16,11 +16,10 @@ function at(state, { dice, pieces = [], current = 0 }) {
   return s;
 }
 
-test('wrap: tabuleiro infinito', () => {
-  assert.equal(g.wrap(5), -4);
-  assert.equal(g.wrap(-5), 4);
-  assert.equal(g.wrap(7), -2);
-  assert.equal(g.wrap(0), 0);
+test('a teia acaba na borda: inside()', () => {
+  assert.equal(g.inside(4, -4), true);
+  assert.equal(g.inside(5, 0), false);
+  assert.equal(g.inside(0, -5), false);
 });
 
 test('setup: cores por nº de jogadores e reserva de 8', () => {
@@ -45,10 +44,24 @@ test('colocar usa só um dos dados: (dadoX,0) ou (0,dadoY)', () => {
   assert.deepEqual(places, [[-3, 0], [0, 2]]);
 });
 
-test('mover com volta pela borda (Pac-Man)', () => {
+test('movimento que sairia da teia não pode ser feito', () => {
   const s = at(g.setup(two), { dice: { x: 3, y: -2 }, pieces: [{ owner: 0, x: 3, y: -3 }] });
   const moves = g.legalActions(s).filter((a) => a.type === 'move').map((a) => [a.x, a.y]);
-  assert.deepEqual(moves, [[-3, -3], [3, 4]]);
+  // 3+3 = 6 (fora) e -3-2 = -5 (fora): nenhuma jogada de mover.
+  assert.deepEqual(moves, []);
+  const s2 = at(g.setup(two), { dice: { x: -3, y: 1 }, pieces: [{ owner: 0, x: 3, y: -3 }] });
+  assert.deepEqual(g.legalActions(s2).filter((a) => a.type === 'move').map((a) => [a.x, a.y]), [[0, -3], [3, -2]]);
+});
+
+test('bônus de nível para na borda da teia', () => {
+  let s = at(g.setup(two), { dice: { x: 1, y: 1 }, pieces: [{ owner: 0, x: 2, y: 3, level: 3 }] });
+  s = g.act(s, 'a', { type: 'move', pieceId: 100, x: 3, y: 3 });
+  assert.equal(s.phase, 'bonus');
+  const t = g.bonusTargets(s);
+  assert.ok(t.every((c) => g.inside(c.x, c.y)));
+  // para cima só cabe 1 casa (y=4); para a direita, 1 (x=4)
+  assert.ok(t.some((c) => c.x === 3 && c.y === 4));
+  assert.ok(!t.some((c) => c.y > 4 || c.x > 4));
 });
 
 test('captura é obrigatória, vai para o cativeiro e dá nível + nova rolagem', () => {

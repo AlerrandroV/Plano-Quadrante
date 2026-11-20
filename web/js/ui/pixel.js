@@ -203,6 +203,107 @@ export function drawPawn(ctx, x, y, color, { level = 0, ghost = false } = {}) {
   }
 }
 
+// -------------------------------------------------------------- aranha
+// 24x24, vista de cima: 8 patas com joelho, cefalotórax, abdômen com marca,
+// olhos e quelíceras. O centro do corpo fica em (12, 12).
+export const SPIDER_SIZE = 24;
+
+function line(set, x0, y0, x1, y1) {
+  // Bresenham: pixels de uma linha entre dois pontos.
+  let x = Math.round(x0); let y = Math.round(y0);
+  const X = Math.round(x1); const Y = Math.round(y1);
+  const dx = Math.abs(X - x); const dy = -Math.abs(Y - y);
+  const sx = x < X ? 1 : -1; const sy = y < Y ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    set.add(`${x},${y}`);
+    if (x === X && y === Y) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x += sx; }
+    if (e2 <= dx) { err += dx; y += sy; }
+  }
+}
+
+function paintSpider(g, color) {
+  const C = ramp(color);
+  const t = TEAM[color] || TEAM.branco;
+  const head = (x, y) => ((x - 12) / 4.3) ** 2 + ((y - 7.4) / 3.6) ** 2 <= 1;
+  const belly = (x, y) => ((x - 12) / 6.4) ** 2 + ((y - 15.6) / 6.6) ** 2 <= 1;
+  const body = (x, y) => head(x, y) || belly(x, y);
+  // Patas (lado direito; o esquerdo é espelhado em x = 24 - x).
+  const LEGS = [
+    [[15, 5], [18, 1.5], [21, 0.5]],
+    [[16, 6.8], [20.5, 4], [23, 6.5]],
+    [[16, 8.6], [20.5, 10.5], [23, 14]],
+    [[15.5, 10.2], [20, 15], [22, 21]],
+  ];
+  const legs = new Set();
+  for (const leg of LEGS) {
+    for (const side of [1, -1]) {
+      const pt = ([x, y]) => [side > 0 ? x : 24 - x, y];
+      const [a, b, c] = leg.map(pt);
+      line(legs, ...a, ...b);
+      line(legs, ...b, ...c);
+    }
+  }
+  const at = (k) => { const [x, y] = k.split(',').map(Number); return [x, y]; };
+  // Contorno das patas (para aparecerem na teia escura).
+  g.fillStyle = color === 'preto' ? '#0b0c12' : PAL.ink;
+  for (const k of legs) {
+    const [x, y] = at(k);
+    for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + ox; const ny = y + oy;
+      if (nx < 0 || ny < 0 || nx > 23 || ny > 23) continue;
+      if (!legs.has(`${nx},${ny}`) && !body(nx + 0.5, ny + 0.5)) g.fillRect(nx, ny, 1, 1);
+    }
+  }
+  for (const k of legs) {
+    const [x, y] = at(k);
+    if (x < 0 || y < 0 || x > 23 || y > 23) continue;
+    g.fillStyle = color === 'preto' ? t.edge : (y < 9 ? C[2] : C[3]);
+    g.fillRect(x, y, 1, 1);
+  }
+  // Corpo com volume.
+  shape(g, 24, 24, body, (x, y, u) => {
+    let sIdx = cyl(u);
+    if (head(x + 0.5, y + 0.5) && !belly(x + 0.5, y + 0.5) && y < 6) sIdx = Math.max(0, sIdx - 1);
+    return sIdx;
+  }, C);
+  // "Cintura" entre cabeça e abdômen.
+  g.fillStyle = C[4];
+  g.fillRect(9, 10, 6, 1);
+  // Marca clara nas costas (como uma ampulheta).
+  g.fillStyle = C[0];
+  g.fillRect(11, 12, 2, 1); g.fillRect(11, 13, 2, 1); g.fillRect(12, 14, 1, 2); g.fillRect(11, 16, 2, 1); g.fillRect(10, 17, 4, 1);
+  g.fillStyle = C[1];
+  g.fillRect(11, 18, 2, 1); g.fillRect(9, 14, 1, 1); g.fillRect(14, 14, 1, 1);
+  // Olhos e quelíceras.
+  g.fillStyle = PAL.white; g.fillRect(10, 5, 1, 2); g.fillRect(13, 5, 1, 2);
+  g.fillStyle = PAL.ink; g.fillRect(11, 6, 1, 1); g.fillRect(12, 6, 1, 1);
+  g.fillRect(11, 3, 1, 2); g.fillRect(12, 3, 1, 2);
+  g.fillStyle = C[0]; g.fillRect(11, 8, 1, 1); // brilho na cabeça
+}
+
+/** Aranha com o canto superior esquerdo em (x, y); o corpo fica no centro. */
+export function drawSpider(ctx, x, y, color, { level = 0, ghost = false } = {}) {
+  blit(ctx, sprite(`spider:${color}`, 24, 24, (g) => paintSpider(g, color)), x, y, ghost ? 0.45 : 1);
+  if (level > 0) {
+    const bx = x + 15;
+    const by = y + 13;
+    ctx.fillStyle = PAL.ink;
+    ctx.fillRect(bx - 1, by - 1, 10, 12);
+    ctx.fillStyle = GOLD[2];
+    ctx.fillRect(bx, by, 8, 10);
+    ctx.fillStyle = GOLD[0];
+    ctx.fillRect(bx, by, 8, 1);
+    ctx.fillRect(bx, by, 1, 10);
+    ctx.fillStyle = GOLD[3];
+    ctx.fillRect(bx, by + 9, 8, 1);
+    ctx.fillRect(bx + 7, by, 1, 10);
+    drawText(ctx, level, bx + 2, by + 2, PAL.ink);
+  }
+}
+
 // ------------------------------------------------------- pedra de damas
 // 28x28: face de cima (elipse) com sulco em anel, espessura embaixo.
 export const DISC_SIZE = 28;

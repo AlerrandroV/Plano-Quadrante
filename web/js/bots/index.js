@@ -3,7 +3,7 @@
 // O robô usa só a "view" que um jogador veria (nos jogos com informação
 // escondida, ele não trapaceia).
 import * as damas from './damas.js';
-import * as pq from './plano-quadrante.js';
+import * as teia from './dominio-da-teia.js';
 import * as domino from './domino.js';
 
 export const BOT_LEVELS = [
@@ -16,7 +16,7 @@ export function levelLabel(level) {
   return BOT_LEVELS.find((l) => l.id === level)?.label || level;
 }
 
-const BOTS = { damas, 'plano-quadrante': pq, domino };
+const BOTS = { damas, 'dominio-da-teia': teia, domino };
 
 export function hasBot(gameId) {
   return !!BOTS[gameId];
