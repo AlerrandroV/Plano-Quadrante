@@ -19,10 +19,12 @@ export const RULES = {
   title: 'Pife',
   items: [
     'Dois baralhos (104 cartas). Cada jogador recebe 9.',
-    'Na sua vez, compre 1 carta (do monte ou a de cima do descarte) e descarte 1. Quem pegou do descarte não pode descartar a mesma carta.',
-    'Bate quem formar 3 jogos de 3 cartas com as 9 e descartar a 10ª. Trinca: 3 do mesmo valor, de naipes diferentes. Sequência: 3 seguidas do mesmo naipe (A-2-3 e Q-K-A valem).',
+    'A VIRA: antes de distribuir, uma carta fica virada ao lado do monte. Ela define os MELÉS (curingas): o clone da vira e as cartas do valor seguinte da mesma cor. Ex.: vira 4 de Ouros -> melés: 4 de Ouros, 5 de Ouros e 5 de Copas (5 melés). Depois do Rei vem o Ás. Os melés aparecem com uma estrela.',
+    'Na sua vez, compre 1 carta (do monte ou a de cima do descarte) e descarte 1. Quem pegou do descarte não pode descartar a mesma carta. Melé do descarte só pode ser pego se for a última carta que falta para bater.',
+    'Bate quem formar 3 jogos de 3 cartas com as 9 e descartar a 10ª. Trinca: 3 do mesmo valor, de naipes diferentes. Sequência: 3 seguidas do mesmo naipe (A-2-3 e Q-K-A valem). O melé vale qualquer carta (um por jogo).',
     'Arrume as cartas: toque numa carta e depois noutro lugar (troca ou move). Monte os 3 jogos nas caixas de baixo e toque em "Bater".',
-    'Regras da casa (se ligadas): melé (curinga, vale qualquer carta, um por jogo); bater de naipe (as 9 do mesmo naipe, o melé vale qualquer naipe); mão sem par (bate de cara); choque (anunciou que bateu sem ter batido: só bate com carta do monte).',
+    'ARMADO (só falta uma carta)? Se a carta de cima do descarte fecha o seu jogo, toque em "Bater com..." na hora, mesmo fora da vez. Se outra carta já cobriu, é choque.',
+    'Regras da casa (se ligadas): bater de naipe (as 9 do mesmo naipe, o melé vale qualquer naipe); mão sem par (bate de cara); choque (anunciou que bateu sem ter batido ou chegou atrasado: só bate com carta do monte); com coringa (os 4 coringas do baralho também valem qualquer carta).',
   ],
 };
 
@@ -84,7 +86,7 @@ export function render(root, state, ctx) {
   const lay = tableLayout({ shared: false, sideA, sideB, center: ui.board.canvas, log: logBar(state.log, RULES) });
   root.replaceChildren(lay);
   // A mão (caixas) é o principal: a mesa fica pequena.
-  fitTable(lay, ui.board.canvas, SIZE, ui.board, { mine: 250, mineW: 330 });
+  fitTable(lay, ui.board.canvas, SIZE, ui.board, { mine: 330, mineW: 360 });
   requestAnimationFrame(() => fitBoxes(lay));
   // Refaz as caixas quando o painel muda de tamanho (girar o celular etc.).
   ui.ro?.disconnect();
@@ -157,9 +159,13 @@ function controlsPanel(state, ctx, meIdx, myTurn) {
     if (me) buttons.push(btn('Jogar de novo', () => send({ type: 'restart' }), 'primary'));
   } else if (myTurn && state.phase === 'draw') {
     title = 'Sua vez: compre';
-    body = me.choque ? 'Você deu choque: só bate com carta do monte.' : 'Toque no monte ou no descarte.';
+    body = me.choque ? 'Você deu choque: só bate com carta do monte.' : meleText(state) || 'Toque no monte ou no descarte.';
     buttons.push(btn('Monte', () => send({ type: 'draw', from: 'deck' }), 'primary'));
-    if (state.discard.length) buttons.push(btn('Descarte', () => send({ type: 'draw', from: 'discard' })));
+    const top = state.discard[state.discard.length - 1];
+    if (top != null) {
+      const meleTop = R.wildFn(state)(top) && R.claimable(state, meIdx) == null;
+      buttons.push(btn(meleTop ? 'Descarte (melé: só p/ bater)' : 'Descarte', () => send({ type: 'draw', from: 'discard' }), '', meleTop));
+    }
     if (R.canNoPair(state, meIdx)) buttons.push(btn('Mão sem par!', () => send({ type: 'nopair' }), 'gold blink'));
   } else if (myTurn) {
     const groups = groupsOf();
@@ -176,7 +182,13 @@ function controlsPanel(state, ctx, meIdx, myTurn) {
     title = `Vez de ${current.name}`;
     body = state.phase === 'draw' ? 'Comprando...' : 'Descartando...';
   }
-  if (me && state.phase !== 'over') buttons.push(btn('Ordenar', () => sortMain(), ''));
+  // Armado: a carta de cima do descarte fecha o jogo (vale fora da vez).
+  const claim = me ? R.claimable(state, meIdx) : null;
+  if (claim != null) {
+    buttons.unshift(btn(`Bater com ${shortName(claim)}!`, () => { ui.sel = null; send({ type: 'claim', card: claim }); }, 'gold blink'));
+    if (!myTurn) title = 'Você está armado!';
+  }
+  if (me && state.phase !== 'over') buttons.push(btn('Ordenar', () => sortMain(), 'small'));
 
   const boxes = me ? boxesView(state, ctx, myTurn) : null;
   return h('div', { class: 'pq-controls' }, h('div', { class: 'pq-ctl-inner pf-ctl' },
@@ -187,8 +199,15 @@ function controlsPanel(state, ctx, meIdx, myTurn) {
       buttons.length ? h('div', { class: 'pq-buttons' }, buttons) : null)));
 }
 
+/** "Vira 4♦ · melés: 4♦ 5♦ 5♥" */
+function meleText(state) {
+  if (state.vira == null) return '';
+  const names = [...R.meleCodes(state.vira)].map((c) => shortName(c));
+  return `Vira ${shortName(state.vira)} · melés: ${names.join(' ')}`;
+}
+
 function shortName(id) {
-  if (R.isJoker(id)) return 'melé';
+  if (R.isJoker(id)) return 'coringa';
   const c = R.code(id);
   return `${['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'][rankOf(c)]}${['♦', '♣', '♥', '♠'][suitOf(c)]}`;
 }
@@ -225,6 +244,7 @@ function slotButton(state, i, myTurn) {
   else {
     const glow = ui.sel === i ? PAL.cyan : id === ui.fresh && myTurn ? PAL.gold : null;
     drawCard52(g, 2, 2, R.code(id), { glow, dim: id === state.took && state.phase === 'discard' && myTurn });
+    if (R.wildFn(state)(id)) star(g, CW - 6, CH / 2 - 3); // melé
   }
   return h('button', {
     class: 'pf-slot' + (ui.sel === i ? ' sel' : '') + (id == null ? ' empty' : ''),
@@ -285,8 +305,8 @@ function fitBoxes(lay) {
 }
 
 // ============================================================ mesa
-const DECK = { x: SIZE / 2 - CW - 18, y: SIZE / 2 - CH / 2 };
-const DISC = { x: SIZE / 2 + 18, y: SIZE / 2 - CH / 2 };
+const DECK = { x: SIZE / 2 - CW - 6, y: SIZE / 2 - CH / 2 };
+const DISC = { x: SIZE / 2 + 22, y: SIZE / 2 - CH / 2 };
 
 class Board {
   constructor() {
@@ -343,6 +363,15 @@ class Board {
     const blink = Math.floor(t / 400) % 2 === 0;
     const canDraw = this.onTap && s.phase === 'draw';
 
+    // A vira: deitada embaixo do monte, com a estrela dos melés.
+    if (s.vira != null) {
+      g.save();
+      g.translate(DECK.x - 4, DECK.y + CH / 2);
+      g.rotate(Math.PI / 2);
+      drawCard52(g, -CW / 2, -CH / 2, R.code(s.vira));
+      g.restore();
+      star(g, DECK.x - 30, DECK.y - 6);
+    }
     // Monte.
     const left = s.deckCount ?? s.deck.length;
     const depth = Math.min(5, Math.ceil(left / 20));
@@ -386,6 +415,13 @@ class Board {
       drawCard52(g, SIZE / 2 - (3 * (CW + 4)) / 2 + c * (CW + 4) + 2, top + r * (CH + 4), R.code(id));
     }));
   }
+}
+
+/** Estrelinha dourada (marca dos melés). */
+function star(g, x, y) {
+  g.fillStyle = PAL.ink; g.fillRect(x - 1, y + 1, 9, 5); g.fillRect(x + 2, y - 2, 3, 11);
+  g.fillStyle = '#ffcd75'; g.fillRect(x, y + 2, 7, 3); g.fillRect(x + 3, y - 1, 1, 9); g.fillRect(x + 2, y + 1, 3, 5);
+  g.fillStyle = '#fff6c8'; g.fillRect(x + 3, y + 2, 1, 1);
 }
 
 function label(g, text, cx, y) {
