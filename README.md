@@ -136,7 +136,7 @@ web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/ui/platform.js       catálogo, seletor de cores, placar
   js/ui/colors.js         as 10 cores e a regra de cores únicas
   js/games/domino/rules.js, ui.js
-  js/games/ultima-carta/rules.js, ui.js, cards.js (cartas em pixel art)
+  js/games/ultima-carta/rules.js, ui.js, cards.js (cartas em pixel art), fx.js (efeitos)
   js/bots/                robôs (damas: alfa-beta; Domínio da Teia: perigo; dominó: memória e bloqueio; Última Carta: ataque e memória de cores) + Web Worker
   js/ui/modal.js          janelas do próprio jogo (no lugar de confirm/prompt/dialog do navegador)
   js/modes/menu.js        menu do app: Mesma tela / Criar sala / Entrar numa sala (código ou salas na rede)
@@ -296,6 +296,14 @@ dois **Pula**, dois **Volta** e dois **+2** por naipe, mais 4 **Coringas** e
 - **Compra até jogar:** sem carta que sirva, compra até achar uma.
 - **Bate com número:** a última carta não pode ser especial.
 - **+4 sem desafio:** o +4 vale a qualquer hora e ninguém desafia.
+
+**Efeitos visuais:** cada carta especial tem animação, em todos os celulares
+da sala. No **Pula**, o símbolo de bloqueio sai do meio da roda e vai até
+quem perde a vez. No **+2/+4**, o "+2"/"+4" voa até quem vai comprar, e as
+cartas saem do monte rapidinho, uma a uma. No **Volta**, o símbolo de reverso
+surge no meio da roda, gira no novo sentido e some. Qualquer compra (inclusive
+o *compra até jogar*) tira uma carta por vez do monte até a mão, e o contador
+de cartas só sobe quando cada uma chega. Os robôs esperam a animação acabar.
 
 Como o dominó, **não tem modo de mesma tela**: cada celular recebe só a
 própria mão. Quem jogou um +4 também não revela se tinha a cor (só o

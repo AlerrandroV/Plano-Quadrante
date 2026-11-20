@@ -633,3 +633,14 @@ canvas.shrunk, .game-art.small, .game-art.tiny { image-rendering: auto; }
   .setup-card .game-options .seg .px-btn { font-size: 10px; padding-left: 6px; padding-right: 6px; }
 }
 .uc-card-btn.can { z-index: 1; }
+
+/* Última Carta: camada dos efeitos (símbolos e cartas voando) */
+.uc-fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
+.uc-fx { position: absolute; image-rendering: pixelated; will-change: transform; }
+.pq-panel.uc-shake { animation: uc-shake .45s steps(6); }
+@keyframes uc-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-6px, 0); } 40% { transform: translate(6px, 0); }
+  60% { transform: translate(-4px, 0); } 80% { transform: translate(4px, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .pq-panel.uc-shake { animation: none; } }

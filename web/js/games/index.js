@@ -68,6 +68,7 @@ export const GAMES = [
   {
     ...ucRules,
     render: ucUi.render,
+    pace: ucUi.pace,
     help: ucUi.RULES,
     id: 'ultima-carta',
     name: 'Última Carta',
