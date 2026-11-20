@@ -3,8 +3,9 @@
 // espera ou partida) e envia jogadas. Quem não está na partida assiste.
 import { connectRelay } from '../net/relay-client.js';
 import { h, mount, randomId, store } from '../ui/dom.js';
-import { fullscreenButton } from '../ui/fullscreen.js';
-import { getGame, capacityText } from '../games/index.js';
+import { menuButton } from '../ui/fullscreen.js';
+import { askText } from '../ui/modal.js';
+import { getGame, capacityText, optionsText } from '../games/index.js';
 import { colorPicker, gameArt, scoreboard, openScoreboard, pawnBadge } from '../ui/platform.js';
 import { isColor } from '../ui/colors.js';
 
@@ -82,7 +83,8 @@ export function startPlayer(root) {
         h('section', { class: 'card' },
           h('h2', {}, 'Na sala!'),
           game ? h('div', { class: 'setup-head' }, gameArt(game, 'game-art small'),
-            h('div', {}, h('strong', { class: 'gold' }, game.name), h('p', { class: 'muted' }, capacityText(game)))) : null,
+            h('div', {}, h('strong', { class: 'gold' }, game.name),
+              h('p', { class: 'muted' }, game.options ? optionsText(game, msg.options) : capacityText(game)))) : null,
           h('p', { class: 'muted' }, me?.role === 'play'
             ? 'Você vai jogar. Esperando o mestre da sala começar…'
             : 'Você vai assistir. O mestre da sala decide quem joga.'),
@@ -113,20 +115,17 @@ export function startPlayer(root) {
       });
     }
 
+    const rename = async () => {
+      const clean = await askText('Seu nome', store.get('pq-name', ''));
+      if (clean) { store.set('pq-name', clean); hello(); }
+    };
     mount(root,
       h('div', { class: 'toolbar' },
-        h('button', {
-          class: 'btn ghost',
-          onclick: () => {
-            const n = prompt('Seu nome:', store.get('pq-name', ''));
-            const clean = n?.replace(/\s+/g, ' ').trim().slice(0, 20);
-            if (clean) { store.set('pq-name', clean); hello(); }
-          },
-        }, 'Nome'),
-        h('span', { class: 'tools' },
-          statusEl,
-          h('button', { class: 'px-btn small', onclick: () => openScoreboard(scores) }, 'Placar'),
-          fullscreenButton())),
+        statusEl,
+        menuButton([
+          { label: 'Trocar meu nome', onClick: rename },
+          { label: 'Placar da sala', onClick: () => openScoreboard(scores) },
+        ])),
       area);
   }
 }

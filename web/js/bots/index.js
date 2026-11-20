@@ -4,6 +4,7 @@
 // escondida, ele não trapaceia).
 import * as damas from './damas.js';
 import * as pq from './plano-quadrante.js';
+import * as domino from './domino.js';
 
 export const BOT_LEVELS = [
   { id: 'facil', label: 'Fácil' },
@@ -15,7 +16,7 @@ export function levelLabel(level) {
   return BOT_LEVELS.find((l) => l.id === level)?.label || level;
 }
 
-const BOTS = { damas, 'plano-quadrante': pq };
+const BOTS = { damas, 'plano-quadrante': pq, domino };
 
 export function hasBot(gameId) {
   return !!BOTS[gameId];

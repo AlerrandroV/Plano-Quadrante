@@ -4,9 +4,10 @@
 // partida (valida as jogadas e envia a cada um o que ele pode ver).
 import { connectRelay } from '../net/relay-client.js';
 import { h, mount, store } from '../ui/dom.js';
-import { fullscreenButton, leaveFocus } from '../ui/fullscreen.js';
-import { GAMES, getGame } from '../games/index.js';
-import { catalog, colorButton, gameArt, scoreboard, openScoreboard, recordResult, pawnBadge } from '../ui/platform.js';
+import { leaveFocus, menuButton } from '../ui/fullscreen.js';
+import { ask, disclosure } from '../ui/modal.js';
+import { GAMES, getGame, defaultOptions, optionsText } from '../games/index.js';
+import { catalog, colorButton, gameArt, scoreboard, openScoreboard, recordResult, pawnBadge, optionsPicker } from '../ui/platform.js';
 import { firstFree, isColor } from '../ui/colors.js';
 import { BOT_LEVELS, levelLabel, hasBot } from '../bots/index.js';
 import { botDriver } from '../bots/driver.js';
@@ -20,6 +21,8 @@ export function startHost(root, env, { onExit = null } = {}) {
   const clients = new Map(); // id -> { id, name, color, role, online }
   const robots = new Map();  // id -> { id, name, color, role, online: true, bot: nível }
   let gameId = store.get('pq-room-game', GAMES[0].id);
+  const gameOpts = {}; // { [gameId]: { opção: escolha } } (ex.: dominó batida/pontos)
+  const optsOf = (id) => ({ ...defaultOptions(getGame(id)), ...(gameOpts[id] || {}) });
   let match = null;          // { gameId, state, recorded }
   const scores = new Map();  // id -> { id, name, color, wins, games }
   let tab = 'convidar';
@@ -154,7 +157,7 @@ export function startHost(root, env, { onExit = null } = {}) {
       } });
     } else {
       relay.send({ t: 'send', to: id, data: {
-        type: 'lobby', you: id, gameId,
+        type: 'lobby', you: id, gameId, options: optsOf(gameId),
         members: online().map(({ id: mid, name, color, role, host: isHost }) => ({ id: mid, name, color, role, host: !!isHost })),
         scores: scoreList(),
       } });
@@ -182,14 +185,14 @@ export function startHost(root, env, { onExit = null } = {}) {
     const g = game();
     const players = lineup().map(({ id, name, color }) => ({ id, name, color }));
     if (players.length < g.meta.minPlayers) return;
-    match = { gameId: g.id, state: g.setup(players), recorded: false };
+    match = { gameId: g.id, state: g.setup(players, optsOf(g.id)), recorded: false };
     driver?.stop(); driver = null; // robôs da partida nova
     syncAll();
   }
 
-  function backToLobby() {
+  async function backToLobby() {
     if (match && match.state.phase !== 'over' && !getGame(match.gameId).outcome(match.state)
-      && !confirm('Encerrar a partida e voltar à sala?')) return;
+      && !(await ask('Encerrar a partida e voltar à sala?'))) return;
     match = null;
     for (const [id, c] of clients) if (!c.online && !scores.has(id)) clients.delete(id);
     syncAll();
@@ -198,7 +201,7 @@ export function startHost(root, env, { onExit = null } = {}) {
   // Se a página recarregar (ex.: app voltou do segundo plano), recupera tudo.
   function persist() {
     store.set(SAVE_KEY, JSON.stringify({
-      at: Date.now(), gameId, match, scores: scoreList(),
+      at: Date.now(), gameId, gameOpts, match, scores: scoreList(),
       clients: [...clients.values()].map(({ id, name, color, role }) => ({ id, name, color, role })),
       robots: [...robots.values()],
     }));
@@ -208,6 +211,7 @@ export function startHost(root, env, { onExit = null } = {}) {
       const saved = JSON.parse(store.get(SAVE_KEY, 'null'));
       if (!saved || Date.now() - saved.at > 6 * 60 * 60 * 1000) return;
       if (getGame(saved.gameId)) gameId = saved.gameId;
+      Object.assign(gameOpts, saved.gameOpts || {});
       for (const r of saved.scores || []) scores.set(r.id, r);
       for (const c of saved.clients || []) clients.set(c.id, { ...c, online: false });
       for (const r of saved.robots || []) robots.set(r.id, { ...r, online: true });
@@ -243,7 +247,7 @@ export function startHost(root, env, { onExit = null } = {}) {
           h('div', { class: 'invite-text' },
             h('p', {}, 'Amigos no ', h('strong', {}, 'mesmo Wi-Fi'), ' ou no seu hotspot leem o QR ou digitam:'),
             h('p', { class: 'address' }, urls[0]),
-            urls.length > 1 ? h('details', {}, h('summary', {}, 'Outros endereços'), h('ul', {}, urls.slice(1).map((u) => h('li', {}, u)))) : null,
+            urls.length > 1 ? disclosure('Outros endereços', h('ul', {}, urls.slice(1).map((u) => h('li', {}, u)))) : null,
             h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')))
         : [h('p', { class: 'warn' }, 'Nenhuma rede encontrada. Conecte-se a um Wi-Fi ou ligue o hotspot e toque em "Atualizar".'),
           h('button', { class: 'btn ghost', onclick: refreshInfo }, 'Atualizar endereço')]);
@@ -275,7 +279,8 @@ export function startHost(root, env, { onExit = null } = {}) {
 
     const pick = h('section', { class: 'card', 'data-sec': 'jogo' },
       h('h2', {}, 'Jogo da vez'),
-      catalog({ selectedId: g.id, onPick: (x) => { selectGame(x.id); syncAll(); } }));
+      catalog({ selectedId: g.id, onPick: (x) => { selectGame(x.id); syncAll(); } }),
+      optionsPicker(g, optsOf(g.id), (v) => { gameOpts[g.id] = v; syncAll(); }));
 
     const board = h('div', { 'data-sec': 'placar' },
       scoreboard(scoreList(), { title: 'Placar da sala' }));
@@ -285,7 +290,7 @@ export function startHost(root, env, { onExit = null } = {}) {
       ? `${g.name}: ${g.meta.minPlayers - playing.length === 1 ? 'falta 1 jogador' : `faltam ${g.meta.minPlayers - playing.length} jogadores`}.`
       : wanting > g.meta.maxPlayers
         ? `${g.name}: só ${g.meta.maxPlayers} jogam; os outros assistem.`
-        : `${g.name} · ${playing.map((p) => p.name).join(' x ')}`;
+        : `${g.name}${g.options ? ` (${optionsText(g, optsOf(g.id))})` : ''} · ${playing.map((p) => p.name).join(' x ')}`;
 
     mount(root,
       h('div', { class: 'toolbar' },
@@ -302,8 +307,8 @@ export function startHost(root, env, { onExit = null } = {}) {
         h('button', { class: 'btn', disabled: !canStart, onclick: startMatch }, 'Começar')));
   }
 
-  function exitRoom() {
-    if (clients.size && !confirm('Fechar a sala? Os jogadores conectados vão sair.')) return;
+  async function exitRoom() {
+    if (clients.size && !(await ask('Fechar a sala? Os jogadores conectados vão sair.'))) return;
     exited = true;
     driver?.stop();
     relay.close();
@@ -320,8 +325,7 @@ export function startHost(root, env, { onExit = null } = {}) {
         h('button', { class: 'btn ghost', onclick: backToLobby }, '< Sala'),
         h('span', { class: 'tools' },
           watching ? h('span', { class: 'status' }, `Assistindo: ${watching}`) : null,
-          h('button', { class: 'px-btn small', onclick: () => openScoreboard(scoreList()) }, 'Placar'),
-          fullscreenButton())),
+          menuButton([{ label: 'Placar da sala', onClick: () => openScoreboard(scoreList()) }]))),
       offline.length ? h('p', { class: 'warn' }, `Desconectado: ${offline.map((p) => p.name).join(', ')}`) : null,
       area);
     const me = inMatch(HOST_ID) ? HOST_ID : null;

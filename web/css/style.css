@@ -354,7 +354,9 @@ main:has(.setup) { max-width: 900px; }
 @media (max-height: 700px) {
   .topbar { display: none; }
   .card { padding: 12px; gap: 8px; }
-  .setup .muted, .lobby .hint, .setup-card .hint { display: none; }
+  .setup .muted, .lobby .hint, .setup-card .hint, .option-hint { display: none; }
+  .setup-head .game-art.small { width: 64px; height: 40px; }
+  .setup-card .seg .px-btn { padding: 6px 8px; }
   .seats { gap: 6px; }
   .px-btn, .btn { padding: 8px 10px; }
 }
@@ -420,14 +422,14 @@ main > .tabs { margin-top: 0; }
 }
 .tab.on { background: var(--gold); color: var(--ink); }
 .room > [data-sec] { min-width: 0; }
-@media (max-width: 1199px), (max-height: 819px) {
+@media (max-width: 1199px), (max-height: 999px) {
   .room[data-tab="convidar"] > :not([data-sec="convidar"]),
   .room[data-tab="jogadores"] > :not([data-sec="jogadores"]),
   .room[data-tab="jogo"] > :not([data-sec="jogo"]),
   .room[data-tab="placar"] > :not([data-sec="placar"]) { display: none; }
   .room { grid-template-columns: 1fr; }
 }
-@media (min-width: 1200px) and (min-height: 820px) {
+@media (min-width: 1200px) and (min-height: 1000px) {
   .tabs { display: none; }
   .room { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 }
@@ -481,3 +483,58 @@ main:has(.room) > .room-footer { margin-top: 0; margin-bottom: 0; }
 .add-bot .px-btn { padding: 8px 2px; font-size: 8px; min-width: 0; overflow: hidden; }
 /* Painéis estreitos (sem a vez): nome na fonte de texto, mais compacta. */
 .pq-panel:not(.has-controls) .pq-name { font: 21px/1 var(--text); text-shadow: 1px 1px 0 var(--bg-d, var(--ink)); }
+
+/* ===================================================== janelas do jogo */
+/* Substituem confirm()/prompt()/<dialog>/<details> do navegador. */
+.px-overlay {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+  background: rgba(10, 12, 24, .78);
+}
+.px-modal {
+  width: min(420px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
+  background: var(--slate); color: var(--white); padding: 14px; display: grid; gap: 12px;
+  box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--ink), 0 var(--px) 0 0 var(--ink),
+    calc(-1 * var(--px)) 0 0 0 var(--ink), var(--px) 0 0 0 var(--ink), 6px 6px 0 var(--px) rgba(0,0,0,.4);
+  animation: pop .12s steps(3);
+}
+.px-modal.wide { width: min(560px, 100%); }
+@keyframes pop { from { transform: scale(.9); } }
+.px-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.px-modal-head h2 { font-size: 11px; color: var(--gold); }
+.px-close {
+  font: 10px var(--title); width: 30px; height: 30px; border: 0; cursor: pointer;
+  background: var(--ink); color: var(--fog);
+}
+.px-modal-body { display: grid; gap: 10px; }
+.px-modal-body .scoreboard { margin: 0; padding: 0; background: none; box-shadow: none; }
+.px-modal-text { font-size: 22px; }
+.px-modal-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
+.help-list { padding-left: 18px; margin: 0; display: grid; gap: 6px; }
+.menu-list { display: grid; gap: 4px; }
+.px-disclosure {
+  font: 9px var(--title); color: var(--cyan); background: none; border: 0; cursor: pointer; padding: 4px 0;
+}
+.px-disclosure-body ul { margin: 4px 0; padding-left: 18px; }
+
+/* Dominó: a sua mão */
+.dom-ctl { flex-direction: column; gap: 6px; }
+.dom-hand { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 100%; }
+.dom-tile-btn { padding: 0; border: 0; background: none; cursor: pointer; line-height: 0; }
+.dom-tile-btn:disabled { cursor: default; }
+.dom-tile-btn.sel { transform: translateY(-4px); }
+.dom-tile { width: 28px; height: 52px; image-rendering: pixelated; }
+@container ctl (max-height: 140px) {
+  .dom-tile { width: 21px; height: 39px; }
+  .dom-ctl { gap: 3px; }
+}
+
+/* Opções do jogo (ex.: dominó batida/pontos) */
+.game-options { display: grid; gap: 6px; }
+.option-hint { font-size: 18px; line-height: 1.1; }
+
+/* Celular deitado: "Jogadores" e as opções do jogo lado a lado. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .setup-card { grid-template-columns: 1fr 1fr; align-items: center; }
+  .setup-card > :not(.seg):not(.game-options) { grid-column: 1 / -1; }
+  .setup-card:not(:has(.game-options)) > .seg { grid-column: 1 / -1; }
+}
