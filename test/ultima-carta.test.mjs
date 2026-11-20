@@ -245,3 +245,34 @@ test('robô difícil vence o fácil', () => {
   for (let i = 0; i < 300; i++) if (playOut(2, {}, i % 2 ? { a: 'dificil', b: 'facil' } : { b: 'dificil', a: 'facil' }) === (i % 2 ? 'a' : 'b')) d++;
   assert.ok(d >= 165, `difícil venceu só ${d}/300`);
 });
+
+// ---------------------------------------------- efeitos para a animação
+
+test('efeitos: Pula, Volta, +2 e +4 dizem quem é atingido e quantas compra', () => {
+  let s = at({ n: 3, hands: [[C('sol', 'pula'), 1], [2], [3]], top: C('sol', 'n', 1) });
+  s = u.act(s, 'a', { type: 'play', id: C('sol', 'pula') });
+  assert.deepEqual(s.fx, [{ t: 'skip', target: 1, c: 'sol' }]);
+  s = at({ n: 3, hands: [[C('sol', 'volta'), 1], [2], [3]], top: C('sol', 'n', 1) });
+  s = u.act(s, 'a', { type: 'play', id: C('sol', 'volta') });
+  assert.deepEqual(s.fx, [{ t: 'reverse', dir: -1, c: 'sol' }]);
+  s = at({ n: 3, hands: [[C('sol', 'mais2'), 1], [2], [3]], top: C('sol', 'n', 1) });
+  s = u.act(s, 'a', { type: 'play', id: C('sol', 'mais2') });
+  assert.deepEqual(s.fx, [{ t: 'hit', target: 1, n: 2, c: 'sol' }, { t: 'draw', pid: 1, n: 2, fast: true }]);
+  s = at({ hands: [[C(null, 'mais4'), C('gota', 'n', 2)], [3, 4]], top: C('sol', 'n', 1) });
+  s = u.act(s, 'a', { type: 'play', id: C(null, 'mais4') });
+  s = u.act(s, 'a', { type: 'color', color: 'gota' });
+  assert.deepEqual(s.fx, [{ t: 'hit', target: 1, n: 4, c: null }]);
+  s = u.act(s, 'b', { type: 'accept' });
+  assert.deepEqual(s.fx, [{ t: 'draw', pid: 1, n: 4, fast: true }]);
+  // A próxima ação zera os efeitos.
+  s = u.act(s, 'a', { type: 'call' });
+  assert.deepEqual(s.fx, []);
+});
+
+test('efeitos: "compra até jogar" vira uma compra de várias cartas, uma a uma', () => {
+  let s = at({ hands: [[C('gota', 'n', 2)], [3]], top: C('sol', 'n', 1), opts: RUA('compraAte') });
+  s.deck.push(C('sol', 'n', 7), C('folha', 'n', 8), C('folha', 'n', 9));
+  s = u.act(s, 'a', { type: 'draw' });
+  assert.deepEqual(s.fx, [{ t: 'draw', pid: 0, n: 3, fast: false }]);
+  assert.deepEqual(u.view(s, 'b').fx, s.fx); // efeitos são públicos (só quantidades)
+});

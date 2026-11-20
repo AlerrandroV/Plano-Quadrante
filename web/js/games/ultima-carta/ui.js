@@ -8,6 +8,7 @@ import {
 import { sfx } from '../../ui/sound.js';
 import * as R from './rules.js';
 import { drawCard, drawSuit, CARD_W, CARD_H, SUIT_RAMP } from './cards.js';
+import * as FX from './fx.js';
 
 const SIZE = 200; // mesa 200x200 (2x): cartas grandes na tela
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -45,6 +46,8 @@ export function render(root, state, ctx) {
 
   if (!ui.board) ui.board = new Board();
   const board = ui.board;
+  // Efeitos novos (bloqueio, reverso, +2/+4, compras) entram na fila de animação.
+  FX.feed(state, meIdx, geometry, rerender);
   board.update(state, meIdx, canDraw ? () => ctx.send({ type: 'draw' }) : null);
   playSounds(state, meIdx);
 
@@ -63,6 +66,43 @@ export function render(root, state, ctx) {
   root.replaceChildren(lay);
   fitTable(lay, board.canvas, SIZE, board);
   requestAnimationFrame(() => fitHand(lay));
+}
+
+/** Tempo para os robôs esperarem (animações de carta e dos efeitos). */
+export function pace(state) {
+  const base = state.phase === 'round' ? 4000
+    : state.vulnerable != null ? 1300 // dá tempo de a pessoa gritar ou pegar
+      : state.phase === 'color' || state.phase === 'challenge' ? 900 : 800;
+  return base + FX.effectsTime(state.fx);
+}
+
+// Onde as coisas estão na tela (para os efeitos voarem entre elas).
+const geometry = {
+  alive: () => !!ui.board?.canvas.isConnected,
+  scale: () => ui.board.canvas.getBoundingClientRect().width / SIZE,
+  center: () => boardPoint(SIZE / 2, SIZE / 2),
+  deck: () => boardPoint(DECK_X + CARD_W / 2, PILE_Y + CARD_H / 2),
+  seat(i, me, card = false) {
+    const mid = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+    if (card && i === me) { const hand = document.querySelector('.uc-hand'); if (hand) return mid(hand); }
+    const panel = document.querySelector(`.pq-panel[data-seat="${i}"]`);
+    if (!panel) return geometry.center();
+    const spot = panel.querySelector(card ? '.pq-stats' : '.pq-who') || panel;
+    return mid(spot);
+  },
+  shake(i) {
+    const panel = document.querySelector(`.pq-panel[data-seat="${i}"]`);
+    if (!panel) return;
+    panel.classList.remove('uc-shake');
+    void panel.offsetWidth; // reinicia a animação
+    panel.classList.add('uc-shake');
+    setTimeout(() => panel.classList.remove('uc-shake'), 500);
+  },
+};
+function boardPoint(x, y) {
+  const r = ui.board.canvas.getBoundingClientRect();
+  const k = r.width / SIZE;
+  return { x: r.left + x * k, y: r.top + y * k };
 }
 
 function rerender() {
@@ -106,7 +146,6 @@ function playSounds(state, meIdx) {
   if (state.seq > snd.seq && state.last) {
     const l = state.last;
     if (l.kind === 'play') sfx(l.jumped ? 'capture' : R.isAction(l.id) ? 'king' : 'card');
-    else if (l.kind === 'draw') sfx('draw');
     else if (l.kind === 'pass') sfx('pass');
     else if (l.kind === 'call') sfx('levelup');
     else if (l.kind === 'catch') sfx('capture');
@@ -126,7 +165,8 @@ function playSounds(state, meIdx) {
 // ================================================================ painéis
 function cardPanel(state, i, ctx, meIdx, { controls = null, me = false, rested = false } = {}) {
   const p = state.players[i];
-  const count = p.handCount ?? p.hand.length;
+  // Cartas ainda voando do monte não contam até chegarem.
+  const count = Math.max(0, (p.handCount ?? p.hand.length) - FX.inFlight(i));
   const tags = [];
   if (state.phase === 'over' && state.winner === i) tags.push({ text: 'VENCEU', kind: 'win' });
   else if (state.phase === 'round' && state.roundResult?.winner === i) tags.push({ text: 'BATEU', kind: 'win' });
@@ -139,6 +179,7 @@ function cardPanel(state, i, ctx, meIdx, { controls = null, me = false, rested =
     turn: !['round', 'over'].includes(state.phase) && state.turn === i,
   });
   if (rested && !controls && state.turn !== i) panel.classList.add('rested');
+  panel.dataset.seat = String(i);
   return panel;
 }
 
@@ -183,6 +224,9 @@ function controlsPanel(state, ctx, { meIdx, myTurn, plays, jumps, myHand }) {
     if (plays.length) body = `Empilhe outro +4 ou compre ${n}.`;
     buttons.push(btn(`Comprar ${n}`, () => send({ type: 'accept' }), 'primary'));
     if (!state.house.mais4Livre) buttons.push(btn('Desafiar', () => send({ type: 'challenge' })));
+  } else if (myTurn && FX.arriving()) {
+    // Suas cartas ainda estão saindo do monte (uma a uma).
+    title = 'Comprando...';
   } else if (myTurn) {
     if (state.pending > 0) {
       title = `Compre ${state.pending}`;
@@ -239,7 +283,7 @@ function handRow(state, ctx, hand, ok, myTurn) {
     const k = { n: c.v, pula: 10, volta: 11, mais2: 12, coringa: 13, mais4: 14 }[c.k];
     return suit * 20 + k;
   };
-  const sorted = hand.slice().sort((a, b) => order(a) - order(b));
+  const sorted = hand.filter((id) => !FX.isHidden(id)).sort((a, b) => order(a) - order(b));
   return h('div', { class: 'uc-hand', role: 'group', 'aria-label': 'Suas cartas' },
     sorted.map((id) => {
       const c = pixelCanvas(CARD_W + 4, CARD_H + 4, 'uc-card');
@@ -338,7 +382,7 @@ class Board {
     }
 
     // Monte (verso, com espessura) e quantas cartas restam.
-    const left = s.deckCount ?? s.deck.length;
+    const left = (s.deckCount ?? s.deck.length) + FX.totalInFlight(); // as que estão voando ainda saem daqui
     const depth = Math.min(5, Math.ceil(left / 18));
     for (let i = depth; i >= 0; i--) drawCard(g, DECK_X - i, PILE_Y + i, 0, { back: true, glow: i === 0 && this.onDraw && blink ? PAL.gold : null });
     const label = String(left);

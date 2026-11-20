@@ -24,6 +24,13 @@ import * as dominoUi from './domino/ui.js';
 import * as ucRules from './ultima-carta/rules.js';
 import * as ucUi from './ultima-carta/ui.js';
 import { drawCard } from './ultima-carta/cards.js';
+import * as pifeRules from './pife/rules.js';
+import * as pifeUi from './pife/ui.js';
+import * as pokerRules from './poker/rules.js';
+import * as pokerUi from './poker/ui.js';
+import * as solRules from './solitario/rules.js';
+import * as solUi from './solitario/ui.js';
+import { drawCard52, codeOf, JOKER } from '../ui/cards52.js';
 import { PAL, TEAM, drawSpider, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
 export const ART_W = 128; // 2x
@@ -68,6 +75,7 @@ export const GAMES = [
   {
     ...ucRules,
     render: ucUi.render,
+    pace: ucUi.pace,
     help: ucUi.RULES,
     id: 'ultima-carta',
     name: 'Última Carta',
@@ -77,6 +85,45 @@ export const GAMES = [
     options: ucRules.OPTIONS,
     seatHint: () => '',
     art: artCartas,
+  },
+  {
+    ...pifeRules,
+    render: pifeUi.render,
+    help: pifeUi.RULES,
+    id: 'pife',
+    name: 'Pife',
+    kind: 'Cartas · tradicional ou da casa',
+    spectators: true,
+    noSharedScreen: true,
+    options: pifeRules.OPTIONS,
+    seatHint: () => '',
+    art: artPife,
+  },
+  {
+    ...pokerRules,
+    render: pokerUi.render,
+    pace: pokerUi.pace,
+    help: pokerUi.RULES,
+    id: 'poker',
+    name: 'Poker',
+    kind: "Cartas · Texas Hold'em",
+    spectators: true,
+    noSharedScreen: true,
+    options: pokerRules.OPTIONS,
+    seatHint: () => '',
+    art: artPoker,
+  },
+  {
+    ...solRules,
+    render: solUi.render,
+    help: solUi.RULES,
+    id: 'solitario',
+    name: 'Solitário',
+    kind: 'Cartas · paciência',
+    spectators: true,
+    options: solRules.OPTIONS,
+    seatHint: () => '',
+    art: artSolitario,
   },
 ];
 
@@ -105,7 +152,8 @@ export function getGame(id) {
 
 export function capacityText(game) {
   const { minPlayers: a, maxPlayers: b } = game.meta;
-  return a === b ? `${a} jogadores` : `${a} a ${b} jogadores`;
+  if (a === b) return a === 1 ? '1 jogador' : `${a} jogadores`;
+  return `${a} a ${b} jogadores`;
 }
 
 // ------------------------------------------------------- ilustrações
@@ -181,4 +229,49 @@ function artCartas(g) {
   drawCard(g, 62, 18, find('gota', 'pula'));
   drawCard(g, 82, 26, find('folha', 'n', 3));
   drawCard(g, 96, 8, find(null, 'mais4'));
+}
+
+function artPife(g) {
+  g.fillStyle = '#1d4a3a'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#163a2d';
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
+  // Uma sequência (7-8-9 de copas) e uma trinca com melé.
+  [[2, 7], [2, 8], [2, 9]].forEach(([s, r], i) => drawCard52(g, 4 + i * 18, 6 + i * 3, codeOf(s, r)));
+  drawCard52(g, 70, 26, codeOf(3, 13));
+  drawCard52(g, 82, 22, codeOf(0, 13));
+  drawCard52(g, 94, 18, JOKER);
+}
+
+function artPoker(g) {
+  g.fillStyle = '#1f5a44'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#194a38';
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
+  // Par de Ases na mão e pilhas de fichas.
+  drawCard52(g, 10, 18, codeOf(3, 1));
+  drawCard52(g, 30, 24, codeOf(2, 1));
+  const stack = (x, n, b, l) => {
+    for (let i = 0; i < n; i++) {
+      const y = 66 - i * 3;
+      g.fillStyle = '#1a1c2c'; g.fillRect(x, y - 1, 18, 6);
+      g.fillStyle = b; g.fillRect(x + 1, y, 16, 4);
+      g.fillStyle = l; g.fillRect(x + 1, y, 16, 1);
+      g.fillStyle = '#f4f4f4'; g.fillRect(x + 4, y + 2, 3, 1); g.fillRect(x + 11, y + 2, 3, 1);
+    }
+  };
+  stack(74, 9, '#d8344f', '#ff8293');
+  stack(96, 6, '#3b6fd9', '#73b7ff');
+  stack(85, 3, '#f2b84b', '#fff3a0');
+}
+
+function artSolitario(g) {
+  g.fillStyle = '#1d4a3a'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#163a2d';
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
+  // Três colunas em cascata e uma fundação com o Ás.
+  const col = (x, cards) => cards.forEach((c, k) => drawCard52(g, x, 4 + k * 9, c, { back: c < 0 }));
+  col(2, [-1, codeOf(3, 9), codeOf(2, 8)]);
+  col(32, [-1, -1, codeOf(0, 12)]);
+  col(62, [codeOf(1, 13), codeOf(0, 12), codeOf(1, 11)]);
+  drawCard52(g, 94, 4, codeOf(2, 1));
+  drawCard52(g, 94, 30, codeOf(3, 1));
 }

@@ -141,6 +141,7 @@ export function setup(list, opts = {}) {
 }
 
 function deal(s) {
+  s.fx = [];
   s.round += 1;
   s.deck = shuffle(CARDS.map((_, i) => i));
   s.players.forEach((p) => { p.hand = s.deck.splice(0, HAND); p.called = false; p.lacks = []; });
@@ -163,9 +164,10 @@ function deal(s) {
   log(s, `Rodada ${s.round}: a carta da mesa é ${cardName(top)}.`);
   // Efeito da carta virada vale para o primeiro jogador.
   const k = CARDS[top].k;
-  if (k === 'pula') { log(s, `${s.players[s.turn].name} perde a vez.`); s.turn = step(s, 1); }
-  else if (k === 'volta') { s.dir = -1; s.turn = s.dealer; } // quem deu começa, no outro sentido
-  else if (k === 'mais2') { give(s, s.turn, 2); log(s, `${s.players[s.turn].name} compra 2.`); s.turn = step(s, 1); }
+  const c = CARDS[top].c;
+  if (k === 'pula') { fx(s, { t: 'skip', target: s.turn, c }); log(s, `${s.players[s.turn].name} perde a vez.`); s.turn = step(s, 1); }
+  else if (k === 'volta') { s.dir = -1; s.turn = s.dealer; fx(s, { t: 'reverse', dir: -1, c }); } // quem deu começa, no outro sentido
+  else if (k === 'mais2') { fx(s, { t: 'hit', target: s.turn, n: 2, c }); give(s, s.turn, 2, true); log(s, `${s.players[s.turn].name} compra 2.`); s.turn = step(s, 1); }
   else if (k === 'coringa') { s.phase = 'color'; s.wild = { by: s.turn, start: true }; }
 }
 
@@ -174,18 +176,36 @@ function step(s, k) {
   return (((s.turn + k * s.dir) % n) + n) % n;
 }
 
-/** Compra `count` cartas para o jogador `idx` (embaralha o descarte se o monte acabar). */
-function give(s, idx, count) {
+/**
+ * Efeitos visuais da última ação (a tela anima, na ordem):
+ *   { t: 'skip', target, c }       símbolo de bloqueio vai até quem perde a vez
+ *   { t: 'hit', target, n, c }     "+2"/"+4" vai até quem vai comprar
+ *   { t: 'reverse', dir, c }       símbolo de reverso gira no novo sentido
+ *   { t: 'draw', pid, n, fast }    cartas saem do monte uma a uma
+ */
+function fx(s, e) { (s.fx ||= []).push(e); }
+
+/**
+ * Compra `count` cartas para o jogador `idx` (embaralha o descarte se o
+ * monte acabar). fast = compra de castigo (+2, +4, pego, desafio).
+ */
+function give(s, idx, count, fast = false) {
+  let got = 0;
   for (let i = 0; i < count; i++) {
     if (!s.deck.length) {
       const top = s.discard.pop();
       s.deck = shuffle(s.discard);
       s.discard = [top];
-      if (!s.deck.length) return;
+      if (!s.deck.length) break;
     }
     s.players[idx].hand.push(s.deck.pop());
+    got++;
   }
   s.players[idx].called = false;
+  if (!got) return;
+  const prev = s.fx?.[s.fx.length - 1];
+  if (prev && prev.t === 'draw' && prev.pid === idx && prev.fast === fast) prev.n += got;
+  else fx(s, { t: 'draw', pid: idx, n: got, fast });
 }
 
 export function topCard(state) {
@@ -282,12 +302,13 @@ export function act(prev, playerId, action) {
     if (prev.phase !== 'round') return null;
     const s = clone(prev);
     s.dealer = (s.dealer + 1) % s.players.length;
-    deal(s);
+    deal(s); // zera os efeitos e anima os da carta virada
     return s;
   }
   if (prev.phase === 'round' || prev.phase === 'over') return null;
 
   const s = clone(prev);
+  s.fx = [];
   const me = s.players[idx];
 
   // Gritar "Última!" (com 2 cartas, antes de jogar; ou com 1, antes de ser pego).
@@ -303,7 +324,7 @@ export function act(prev, playerId, action) {
   if (action.type === 'catch') {
     const t = action.target;
     if (s.vulnerable == null || s.vulnerable !== t || t === idx) return null;
-    give(s, t, 2);
+    give(s, t, 2, true);
     s.vulnerable = null;
     s.last = { seq: ++s.seq, kind: 'catch', pid: idx, target: t };
     log(s, `${me.name} pegou ${s.players[t].name} sem gritar "Última!": compra 2.`);
@@ -338,10 +359,11 @@ export function act(prev, playerId, action) {
       if (w.start) { s.wild = null; return s; } // carta virada: o primeiro escolhe a cor e joga
       if (w.kind === 'mais4') {
         s.turn = step(s, 1);
+        fx(s, { t: 'hit', target: s.turn, n: 4 + s.pending, c: null });
         if (!s.players[idx].hand.length) {
           // Bateu com +4: o próximo compra e a rodada acaba.
           s.wild = null;
-          give(s, s.turn, 4 + s.pending);
+          give(s, s.turn, 4 + s.pending, true);
           s.pending = 0;
           return endRound(s, idx);
         }
@@ -366,14 +388,15 @@ export function act(prev, playerId, action) {
       s.phase = 'play';
       if (w.hadColor) {
         // Jogou o +4 tendo carta da cor: quem compra é ele.
-        give(s, w.by, 4 + s.pending);
+        fx(s, { t: 'hit', target: w.by, n: 4 + s.pending, c: null });
+        give(s, w.by, 4 + s.pending, true);
         log(s, `Desafio certo! ${s.players[w.by].name} tinha ${SUIT_LABEL[w.prevColor]} e compra ${4 + s.pending}.`);
         s.pending = 0;
         s.last = { seq: ++s.seq, kind: 'challenge', pid: idx, ok: true };
         if (s.players[w.by].hand.length && s.vulnerable === w.by) s.vulnerable = null;
         return s; // o desafiante joga normalmente
       }
-      give(s, idx, 6 + s.pending);
+      give(s, idx, 6 + s.pending, true);
       log(s, `Desafio errado: ${me.name} compra ${6 + s.pending}.`);
       s.pending = 0;
       s.last = { seq: ++s.seq, kind: 'challenge', pid: idx, ok: false };
@@ -398,7 +421,7 @@ export function act(prev, playerId, action) {
       if (s.pending > 0) {
         // Não empilhou: compra tudo o que acumulou e perde a vez.
         const n = s.pending;
-        give(s, idx, n);
+        give(s, idx, n, true);
         s.pending = 0;
         s.last = { seq: ++s.seq, kind: 'draw', pid: idx, count: n };
         log(s, `${me.name} comprou ${n}.`);
@@ -439,7 +462,7 @@ export function act(prev, playerId, action) {
 function afterPlus4(s, _) {
   // Quem está na vez (o "alvo" do +4) aceita: compra 4 (+ acumulado) e perde a vez.
   const n = 4 + s.pending;
-  give(s, s.turn, n);
+  give(s, s.turn, n, true);
   log(s, `${s.players[s.turn].name} comprou ${n}.`);
   s.pending = 0;
   s.phase = 'play';
@@ -474,23 +497,28 @@ function playCard(s, idx, id, jumped) {
 
   switch (card.k) {
     case 'pula':
+      fx(s, { t: 'skip', target: step(s, 1), c: card.c });
       if (!me.hand.length) return endRound(s, idx);
       log(s, `${s.players[step(s, 1)].name} perde a vez.`);
       s.turn = step(s, 2);
       return s;
     case 'volta':
       s.dir *= -1;
+      fx(s, { t: 'reverse', dir: s.dir, c: card.c });
+      if (n === 2) fx(s, { t: 'skip', target: step(s, 1), c: card.c }); // com 2, vale como Pula
       if (!me.hand.length) return endRound(s, idx);
       s.turn = n === 2 ? step(s, 2) : step(s, 1);
       return s;
     case 'mais2':
       if (s.house.empilhar) {
         s.pending += 2;
-        if (!me.hand.length) { give(s, step(s, 1), s.pending); s.pending = 0; return endRound(s, idx); }
+        fx(s, { t: 'hit', target: step(s, 1), n: s.pending, c: card.c });
+        if (!me.hand.length) { give(s, step(s, 1), s.pending, true); s.pending = 0; return endRound(s, idx); }
         s.turn = step(s, 1);
         return s;
       }
-      give(s, step(s, 1), 2);
+      fx(s, { t: 'hit', target: step(s, 1), n: 2, c: card.c });
+      give(s, step(s, 1), 2, true);
       log(s, `${s.players[step(s, 1)].name} compra 2 e perde a vez.`);
       if (!me.hand.length) return endRound(s, idx);
       s.turn = step(s, 2);

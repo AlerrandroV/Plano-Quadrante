@@ -64,7 +64,7 @@ export const SUIT_SPRITES = {
 };
 
 // Símbolos 11x11 do Pula e do Volta.
-const PULA = [
+export const PULA = [
   '...XXXXX...',
   '..XX...XX..',
   '.XX.....XX.',
@@ -77,7 +77,7 @@ const PULA = [
   '..XX...XX..',
   '...XXXXX...',
 ];
-const VOLTA = [
+export const VOLTA = [
   '......X....',
   '......XX...',
   '.XXXXXXXX..',

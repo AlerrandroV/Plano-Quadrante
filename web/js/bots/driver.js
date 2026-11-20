@@ -75,6 +75,9 @@ export function botDriver({ gameId, bots, getState, apply }) {
 
 // Tempo para a pessoa acompanhar: animação dos dados, salto da peça etc.
 function waitFor(gameId, state) {
+  // Jogos com animações próprias dizem quanto esperar.
+  const pace = getGame(gameId)?.pace;
+  if (pace) return pace(state);
   if (gameId === 'dominio-da-teia') {
     if (state.phase === 'roll') return 650;
     if (state.phase === 'bonus') return 800;
@@ -83,12 +86,6 @@ function waitFor(gameId, state) {
   if (gameId === 'domino') {
     if (state.phase === 'round') return 4000; // tempo para ver o resultado da rodada
     return 900;
-  }
-  if (gameId === 'ultima-carta') {
-    if (state.phase === 'round') return 4000;
-    if (state.vulnerable != null) return 1300; // dá tempo de a pessoa gritar ou pegar
-    if (state.phase === 'color' || state.phase === 'challenge') return 900;
-    return 800;
   }
   if (gameId === 'damas') {
     const segs = state.last ? state.last.path.length : 0;

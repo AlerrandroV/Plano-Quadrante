@@ -29,8 +29,10 @@ export function tableLayout({ shared, sideA, sideB, center, log }) {
 /**
  * Ajusta o tamanho do tabuleiro para a partida caber inteira na tela.
  * `native` = tamanho do canvas em pixels de arte; `holder` guarda o observer.
+ * cap(W, H, landscape): tamanho máximo da mesa (opcional).
+ * sides: quantos lados têm painéis (1 = jogo de uma pessoa só).
  */
-export function fitTable(pq, canvas, native, holder) {
+export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2 } = {}) {
   const run = () => {
     if (!pq.isConnected) return;
     const W = pq.clientWidth;
@@ -43,9 +45,12 @@ export function fitTable(pq, canvas, native, holder) {
     const sideMin = landscape
       ? Math.max(170, Math.min(240, W * 0.22))
       : Math.max(150, Math.min(180, H * 0.24));
+    // sides = 1: só o painel de baixo/direita (jogos de um jogador).
     let S = landscape
-      ? Math.min(H - logH, W - 2 * (sideMin + gap))
-      : Math.min(W, H - logH - 2 * (sideMin + gap));
+      ? Math.min(H - logH, W - sides * (sideMin + gap))
+      : Math.min(W, H - logH - sides * (sideMin + gap));
+    // Jogos em que a mão importa mais que a mesa limitam o tamanho da mesa.
+    if (cap) S = Math.min(S, cap(W, H - logH, landscape));
     S = Math.max(110, S);
     let k = S / native;
     // Escala inteira/meia mantém os pixels nítidos; em telas pequenas,
@@ -188,6 +193,28 @@ const ICONS = {
     '.KKKKKKWK',
     '..KWWWWWK',
     '..KKKKKKK',
+    '.........',
+  ],
+  fichas: [
+    '..GGGGG..',
+    '.GKGKGKG.',
+    '.GGGGGGG.',
+    '..GGGGG..',
+    '.WWWWWWW.',
+    '.WKWKWKW.',
+    '.WWWWWWW.',
+    '..WWWWW..',
+    '.........',
+  ],
+  aposta: [
+    '....G....',
+    '...GGG...',
+    '..G.G.G..',
+    '....G....',
+    '..GGGGG..',
+    '.GKGKGKG.',
+    '.GGGGGGG.',
+    '..GGGGG..',
     '.........',
   ],
   trofeu: [
