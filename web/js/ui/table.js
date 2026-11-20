@@ -1,9 +1,11 @@
 // "Mesa" comum a todos os jogos da plataforma: mesma identidade visual,
 // mesma organização de tela.
 //
-//   ┌ lado A ┐   em pé: lado A / tabuleiro / lado B (faixas iguais)
+//   ┌ lado A ┐   em pé: lado A / tabuleiro / lado B
 //   │ tabul. │   deitado: as faixas viram colunas
 //   └ lado B ┘   + uma linha de registro embaixo
+// Na mesma tela, os lados A e B são iguais; na tela pessoal, a mesa fica
+// quase da largura toda e os adversários (lado A) só com a altura do conteúdo.
 //
 // Cada jogo monta os painéis dos jogadores e o "centro" (normalmente o
 // canvas do tabuleiro) e chama tableLayout() + fitTable().
@@ -29,10 +31,16 @@ export function tableLayout({ shared, sideA, sideB, center, log }) {
 /**
  * Ajusta o tamanho do tabuleiro para a partida caber inteira na tela.
  * `native` = tamanho do canvas em pixels de arte; `holder` guarda o observer.
+ *
+ * Tela pessoal (cada um no seu celular, ou você x robôs): a mesa fica quase
+ * da largura toda; os adversários ocupam só a altura do conteúdo e o seu
+ * painel fica com o resto (no mínimo `mine` px em pé, `mineW` px deitado).
+ * Mesma tela (dois lados com controles): os dois lados ficam iguais.
+ *
  * cap(W, H, landscape): tamanho máximo da mesa (opcional).
  * sides: quantos lados têm painéis (1 = jogo de uma pessoa só).
  */
-export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2 } = {}) {
+export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2, mine = 190, mineW = 250 } = {}) {
   const run = () => {
     if (!pq.isConnected) return;
     const W = pq.clientWidth;
@@ -42,20 +50,29 @@ export function fitTable(pq, canvas, native, holder, { cap = null, sides = 2 } =
     const logH = log ? log.offsetHeight + gap : 0;
     const landscape = W > H * 1.15;
     pq.classList.toggle('landscape', landscape);
-    const sideMin = landscape
-      ? Math.max(170, Math.min(240, W * 0.22))
-      : Math.max(150, Math.min(180, H * 0.24));
-    // sides = 1: só o painel de baixo/direita (jogos de um jogador).
-    let S = landscape
-      ? Math.min(H - logH, W - sides * (sideMin + gap))
-      : Math.min(W, H - logH - sides * (sideMin + gap));
+    const shared = pq.classList.contains('shared');
+    let S;
+    if (shared) {
+      const sideMin = landscape
+        ? Math.max(170, Math.min(240, W * 0.22))
+        : Math.max(140, Math.min(175, H * 0.22));
+      S = landscape ? Math.min(H - logH, W - 2 * (sideMin + gap)) : Math.min(W, H - logH - 2 * (sideMin + gap));
+    } else {
+      const sideA = pq.querySelector('.pq-side.a');
+      const hasA = sides > 1 && sideA && sideA.children.length > 0;
+      if (landscape) {
+        const wA = hasA ? Math.round(Math.max(150, Math.min(210, W * 0.19))) : 0;
+        pq.style.setProperty('--sideA', `${wA}px`);
+        S = Math.min(H - logH, W - wA - mineW - (hasA ? 2 : 1) * gap);
+      } else {
+        const hA = hasA ? sideA.offsetHeight : 0;
+        S = Math.min(W - 4, H - logH - hA - mine - (hasA ? 2 : 1) * gap);
+      }
+    }
     // Jogos em que a mão importa mais que a mesa limitam o tamanho da mesa.
     if (cap) S = Math.min(S, cap(W, H - logH, landscape));
     S = Math.max(110, S);
-    let k = S / native;
-    // Escala inteira/meia mantém os pixels nítidos; em telas pequenas,
-    // vale mais o tabuleiro grande do que a escala exata.
-    k = k >= 3 ? Math.floor(k * 2) / 2 : k >= 1 ? Math.floor(k * 4) / 4 : k;
+    const k = S / native;
     const size = Math.floor(native * k);
     // Reduzir em modo pixelado apaga linhas finas: abaixo de 100%, suaviza.
     canvas.classList.toggle('shrunk', k < 1);

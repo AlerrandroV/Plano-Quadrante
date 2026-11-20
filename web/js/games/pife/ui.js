@@ -82,10 +82,9 @@ export function render(root, state, ctx) {
   const controls = controlsPanel(state, ctx, meIdx, myTurn);
   const sideB = [me ? panel(state, meIdx, { controls, me: true }) : spectatorPanel(controls)];
   const lay = tableLayout({ shared: false, sideA, sideB, center: ui.board.canvas, log: logBar(state.log, RULES) });
-  lay.classList.add('hand-heavy');
   root.replaceChildren(lay);
   // A mão (caixas) é o principal: a mesa fica pequena.
-  fitTable(lay, ui.board.canvas, SIZE, ui.board, { cap: (W, H, land) => (land ? Math.min(H, W * 0.27) : Math.min(W, H * 0.27)) });
+  fitTable(lay, ui.board.canvas, SIZE, ui.board, { mine: 250, mineW: 330 });
   requestAnimationFrame(() => fitBoxes(lay));
   // Refaz as caixas quando o painel muda de tamanho (girar o celular etc.).
   ui.ro?.disconnect();

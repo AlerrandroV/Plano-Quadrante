@@ -725,3 +725,20 @@ canvas.shrunk, .game-art.small, .game-art.tiny { image-rendering: auto; }
 .pq.one-side .pq-side.a { display: none; }
 .so-ctl { flex-direction: column; gap: 6px; }
 .pq.one-side.landscape { grid-template-columns: 0 var(--board, 300px) minmax(0, 380px); justify-content: center; }
+
+/* Tela pessoal: mesa grande; adversários só com a altura do conteúdo. */
+main:has(.pq) { padding-left: 6px; padding-right: 6px; }
+.pq.personal { grid-template-rows: auto var(--board, 300px) minmax(0, 1fr) auto; }
+.pq.personal.landscape { grid-template-columns: var(--sideA, 200px) var(--board, 300px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+.pq.personal:not(.landscape) .pq-side.a:empty { display: none; }
+.pq.personal:not(.landscape) .pq-side.a .pq-panel { padding: 6px 8px; }
+.pq.personal.one-side { grid-template-rows: var(--board, 300px) minmax(0, 1fr) auto; grid-template-areas: "board" "b" "log"; }
+.pq.personal.one-side.landscape { grid-template-columns: var(--board, 300px) minmax(0, 380px); grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "board b" "log log"; justify-content: center; }
+/* Celular deitado: Sair/Menu numa coluna estreita ao lado (a mesa ganha a altura). */
+@media (orientation: landscape) and (max-height: 520px) {
+  main:has(.pq) { flex-direction: row; padding-top: 6px; gap: 6px; }
+  main:has(.pq) > .toolbar { flex-direction: column; justify-content: flex-start; align-items: stretch; width: 66px; flex: none; gap: 4px; }
+  main:has(.pq) > .toolbar .px-btn { padding: 8px 2px; font-size: 8px; }
+  main:has(.pq) > .toolbar .tools { flex-direction: column; align-items: stretch; }
+  main:has(.pq) > .game, main:has(.pq) > .stage { flex: 1; min-width: 0; }
+}
