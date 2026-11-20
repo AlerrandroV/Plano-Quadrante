@@ -719,3 +719,9 @@ canvas.shrunk, .game-art.small, .game-art.tiny { image-rendering: auto; }
 @media (orientation: landscape) and (max-height: 520px) {
   .setup-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
+/* Jogo de uma pessoa só (Solitário): sem painel de cima, mesa maior. */
+.pq.one-side { grid-template-rows: 0 var(--board, 300px) minmax(0, 1fr) auto; }
+.pq.one-side.landscape { grid-template-columns: 0 var(--board, 300px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+.pq.one-side .pq-side.a { display: none; }
+.so-ctl { flex-direction: column; gap: 6px; }
+.pq.one-side.landscape { grid-template-columns: 0 var(--board, 300px) minmax(0, 380px); justify-content: center; }

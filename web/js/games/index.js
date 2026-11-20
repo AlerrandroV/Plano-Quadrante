@@ -28,6 +28,8 @@ import * as pifeRules from './pife/rules.js';
 import * as pifeUi from './pife/ui.js';
 import * as pokerRules from './poker/rules.js';
 import * as pokerUi from './poker/ui.js';
+import * as solRules from './solitario/rules.js';
+import * as solUi from './solitario/ui.js';
 import { drawCard52, codeOf, JOKER } from '../ui/cards52.js';
 import { PAL, TEAM, drawSpider, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
@@ -110,6 +112,18 @@ export const GAMES = [
     options: pokerRules.OPTIONS,
     seatHint: () => '',
     art: artPoker,
+  },
+  {
+    ...solRules,
+    render: solUi.render,
+    help: solUi.RULES,
+    id: 'solitario',
+    name: 'Solitário',
+    kind: 'Cartas · paciência',
+    spectators: true,
+    options: solRules.OPTIONS,
+    seatHint: () => '',
+    art: artSolitario,
   },
 ];
 
@@ -246,4 +260,17 @@ function artPoker(g) {
   stack(74, 9, '#d8344f', '#ff8293');
   stack(96, 6, '#3b6fd9', '#73b7ff');
   stack(85, 3, '#f2b84b', '#fff3a0');
+}
+
+function artSolitario(g) {
+  g.fillStyle = '#1d4a3a'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#163a2d';
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
+  // Três colunas em cascata e uma fundação com o Ás.
+  const col = (x, cards) => cards.forEach((c, k) => drawCard52(g, x, 4 + k * 9, c, { back: c < 0 }));
+  col(2, [-1, codeOf(3, 9), codeOf(2, 8)]);
+  col(32, [-1, -1, codeOf(0, 12)]);
+  col(62, [codeOf(1, 13), codeOf(0, 12), codeOf(1, 11)]);
+  drawCard52(g, 94, 4, codeOf(2, 1));
+  drawCard52(g, 94, 30, codeOf(3, 1));
 }
