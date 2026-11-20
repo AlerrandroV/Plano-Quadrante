@@ -26,6 +26,8 @@ import * as ucUi from './ultima-carta/ui.js';
 import { drawCard } from './ultima-carta/cards.js';
 import * as pifeRules from './pife/rules.js';
 import * as pifeUi from './pife/ui.js';
+import * as pokerRules from './poker/rules.js';
+import * as pokerUi from './poker/ui.js';
 import { drawCard52, codeOf, JOKER } from '../ui/cards52.js';
 import { PAL, TEAM, drawSpider, drawDie, drawDisc, drawTile } from '../ui/pixel.js';
 
@@ -94,6 +96,20 @@ export const GAMES = [
     options: pifeRules.OPTIONS,
     seatHint: () => '',
     art: artPife,
+  },
+  {
+    ...pokerRules,
+    render: pokerUi.render,
+    pace: pokerUi.pace,
+    help: pokerUi.RULES,
+    id: 'poker',
+    name: 'Poker',
+    kind: "Cartas · Texas Hold'em",
+    spectators: true,
+    noSharedScreen: true,
+    options: pokerRules.OPTIONS,
+    seatHint: () => '',
+    art: artPoker,
   },
 ];
 
@@ -209,4 +225,25 @@ function artPife(g) {
   drawCard52(g, 70, 26, codeOf(3, 13));
   drawCard52(g, 82, 22, codeOf(0, 13));
   drawCard52(g, 94, 18, JOKER);
+}
+
+function artPoker(g) {
+  g.fillStyle = '#1f5a44'; g.fillRect(0, 0, ART_W, ART_H);
+  g.fillStyle = '#194a38';
+  for (let y = 0; y < ART_H; y += 3) for (let x = (y / 3) % 2; x < ART_W; x += 3) g.fillRect(x, y, 1, 1);
+  // Par de Ases na mão e pilhas de fichas.
+  drawCard52(g, 10, 18, codeOf(3, 1));
+  drawCard52(g, 30, 24, codeOf(2, 1));
+  const stack = (x, n, b, l) => {
+    for (let i = 0; i < n; i++) {
+      const y = 66 - i * 3;
+      g.fillStyle = '#1a1c2c'; g.fillRect(x, y - 1, 18, 6);
+      g.fillStyle = b; g.fillRect(x + 1, y, 16, 4);
+      g.fillStyle = l; g.fillRect(x + 1, y, 16, 1);
+      g.fillStyle = '#f4f4f4'; g.fillRect(x + 4, y + 2, 3, 1); g.fillRect(x + 11, y + 2, 3, 1);
+    }
+  };
+  stack(74, 9, '#d8344f', '#ff8293');
+  stack(96, 6, '#3b6fd9', '#73b7ff');
+  stack(85, 3, '#f2b84b', '#fff3a0');
 }

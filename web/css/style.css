@@ -666,3 +666,56 @@ canvas.shrunk, .game-art.small, .game-art.tiny { image-rendering: auto; }
 .pf-ctl.pf-side { flex-direction: row; }
 .pf-ctl.pf-side .pf-boxes { width: auto; flex: 1; }
 .pf-ctl.pf-side .pq-message { flex: 0 0 180px; }
+
+/* Poker: suas cartas, cartas dos outros e aposta */
+.pk-ctl { flex-direction: column; gap: 6px; }
+.pk-ctl.raising .pk-myhand { display: none; }
+.pk-myhand { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.pk-mycards { display: flex; gap: 4px; }
+.pk-card { width: 54px; height: 75px; image-rendering: pixelated; }
+.pk-handname { font: 18px/1 var(--text); color: var(--white); background: rgba(10,12,22,.45); padding: 2px 6px; }
+.pk-handname.mine { font-size: 20px; color: var(--gold); }
+.pk-hole { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
+.pk-hole.folded { opacity: .35; }
+.pk-mini { width: 18px; height: 26px; image-rendering: pixelated; }
+.pq-panel.rested .pk-hole, .pq-panel.rested .pk-handname { display: none; }
+@container ctl (max-height: 190px) {
+  .pk-card { width: 36px; height: 50px; }
+  .pk-ctl { gap: 3px; }
+}
+/* Muitos números de jogadores (ex.: poker 2 a 8): botões estreitos. */
+.seg.many .px-btn { font-size: 10px; padding-left: 2px; padding-right: 2px; margin-left: 1px; margin-right: 1px; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .setup-card .game-options .seg .px-btn { white-space: normal; font-size: 9px; padding-left: 3px; padding-right: 3px; }
+  .setup-head .game-art.small { width: 48px; height: 30px; }
+  .setup-head h2 { font-size: 12px; }
+  .setup-head p { display: none; }
+  .setup-card { gap: 6px; }
+}
+/* Robôs compactos: peão em cima, nível embaixo (cabem vários por linha). */
+.seats.bots { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.seat.compact { padding-left: 6px; border-left-width: 4px; }
+.seat.compact .row { flex-direction: column; align-items: stretch; gap: 2px; }
+.seat.compact .who { font-size: 8px; padding: 5px 2px; margin: 0; }
+.seat.compact .color-btn { align-self: center; }
+.setup-card { grid-template-columns: minmax(0, 1fr); }
+/* Três ou mais opções: as dicas ficam só na ajuda, para caber na tela. */
+.game-options:has(.game-option:nth-child(3)) .option-hint { display: none; }
+.game-options { grid-template-columns: minmax(0, 1fr); }
+.game-options .seg .px-btn { padding-left: 6px; padding-right: 6px; }
+@media (orientation: landscape) and (max-height: 520px) {
+  /* Deitado: robôs lado a lado (peão + nível na mesma linha). */
+  .seats.bots { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 4px 6px; }
+  .seat.compact .row { flex-direction: row; align-items: center; }
+  .seats.bots > .seat:not(.compact) { grid-column: span 2; }
+  .setup-card .game-options .seg .px-btn { padding-top: 4px; padding-bottom: 4px; }
+  .game-options { gap: 2px; }
+}
+.seats.bots > .seat:not(.compact) .seat-color { display: none; }
+@media (max-height: 760px) {
+  .setup-head .game-art.small { width: 48px; height: 30px; }
+  .setup-head p { display: none; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .setup-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
