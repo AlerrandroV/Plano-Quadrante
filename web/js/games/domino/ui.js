@@ -8,8 +8,8 @@ import {
 import { sfx } from '../../ui/sound.js';
 import * as R from './rules.js';
 
-const CELL = 12;
-const M = 6;
+const CELL = 24; // 2x: cada peça (24x48) ocupa 2 casas
+const M = 8; // mesa de 352 px: cabe em 100% na largura de um celular comum
 const FELT = '#1d4a3a';
 const FELT_D = '#163a2d';
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -240,8 +240,8 @@ function handRow(state, ctx, hand, plays, myTurn) {
   return h('div', { class: 'dom-hand', role: 'group', 'aria-label': 'Suas peças' },
     hand.map((id) => {
       const { a, b } = R.TILES[id];
-      const c = pixelCanvas(TILE_W + 2, TILE_L + 2, 'dom-tile');
-      drawTile(c.getContext('2d'), 1, 1, true, a, b, {
+      const c = pixelCanvas(TILE_W + 4, TILE_L + 4, 'dom-tile');
+      drawTile(c.getContext('2d'), 2, 2, true, a, b, {
         glow: ui.sel === id ? PAL.cyan : myTurn && playable.has(id) ? PAL.gold : null,
         dim: myTurn && !playable.has(id),
       });
@@ -323,17 +323,12 @@ class Board {
     const T = this.T;
     const BW = T.size;
     const GRID = T.G;
-    // Feltro verde com trama, moldura de madeira escura.
-    g.fillStyle = PAL.ink;
-    g.fillRect(0, 0, BW, BW);
-    g.fillStyle = FELT;
-    g.fillRect(M - 2, M - 2, GRID * CELL + 4, GRID * CELL + 4);
-    g.fillStyle = FELT_D;
-    for (let y = M; y < M + GRID * CELL; y += 4) for (let x = M + ((y / 4) % 2) * 2; x < M + GRID * CELL; x += 4) g.fillRect(x, y, 1, 1);
+    g.drawImage(this.background(T), 0, 0);
 
     if (!s.line.length) {
       g.fillStyle = '#2b6650';
-      g.fillRect(M + T.center[0][0] * CELL, M + T.center[0][1] * CELL, CELL * 2, CELL);
+      // Lugar da primeira peça.
+      g.fillRect(M + T.center[0][0] * CELL + 2, M + T.center[0][1] * CELL + 2, CELL * 2 - 4, CELL - 4);
     }
 
     const lastId = s.last?.kind === 'play' ? s.last.id : null;
@@ -350,7 +345,7 @@ class Board {
       let dy = 0;
       if (this.drop && this.drop.id === item.t.id) {
         const k = (t - this.drop.start) / 220;
-        if (k >= 1) this.drop = null; else dy = -Math.round((1 - k) * 6);
+        if (k >= 1) this.drop = null; else dy = -Math.round((1 - k) * 12);
       }
       drawTile(g, x, y + dy, !horizontal, a, b, { glow: item.t.id === lastId ? '#8c6a3a' : null });
     }
@@ -359,14 +354,45 @@ class Board {
     const blink = Math.floor(t / 280) % 2 === 0;
     const next = nextCells(s, T);
     for (const end of this.ends) {
-      g.fillStyle = blink ? PAL.gold : '#a0784a';
       for (const cell of next[end]) {
         if (!cell) continue;
         const x = M + cell[0] * CELL;
         const y = M + cell[1] * CELL;
-        g.fillRect(x + 2, y + 2, CELL - 4, 1); g.fillRect(x + 2, y + CELL - 3, CELL - 4, 1);
-        g.fillRect(x + 2, y + 2, 1, CELL - 4); g.fillRect(x + CELL - 3, y + 2, 1, CELL - 4);
+        // Contorno tracejado (2 px) onde a peça vai entrar.
+        for (let i = 3; i < CELL - 3; i += 4) {
+          g.fillStyle = blink ? PAL.gold : '#a0784a';
+          g.fillRect(x + i, y + 3, 2, 2); g.fillRect(x + i, y + CELL - 5, 2, 2);
+          g.fillRect(x + 3, y + i, 2, 2); g.fillRect(x + CELL - 5, y + i, 2, 2);
+        }
       }
     }
+  }
+
+  /** Feltro e moldura de madeira (desenhados uma vez para cada tamanho de mesa). */
+  background(T) {
+    this.bgs ||= {};
+    if (this.bgs[T.G]) return this.bgs[T.G];
+    const c = document.createElement('canvas');
+    c.width = T.size;
+    c.height = T.size;
+    const g = c.getContext('2d');
+    const span = T.G * CELL;
+    g.fillStyle = PAL.ink;
+    g.fillRect(0, 0, T.size, T.size);
+    // Moldura de madeira com veios.
+    g.fillStyle = '#5a3a22'; g.fillRect(M - 8, M - 8, span + 16, span + 16);
+    g.fillStyle = '#6e4a2c';
+    for (let y = M - 8; y < M + span + 8; y += 3) g.fillRect(M - 8, y, span + 16, 1);
+    g.fillStyle = '#8a6040'; g.fillRect(M - 8, M - 8, span + 16, 2); g.fillRect(M - 8, M - 8, 2, span + 16);
+    g.fillStyle = '#3a2414'; g.fillRect(M - 8, M + span + 6, span + 16, 2); g.fillRect(M + span + 6, M - 8, 2, span + 16);
+    // Feltro com trama fina e um leve sombreado nas bordas.
+    g.fillStyle = FELT;
+    g.fillRect(M - 2, M - 2, span + 4, span + 4);
+    g.fillStyle = FELT_D;
+    for (let y = M; y < M + span; y += 3) for (let x = M + ((y / 3) % 2) * 1.5; x < M + span; x += 3) g.fillRect(Math.round(x), y, 1, 1);
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    g.fillRect(M - 2, M - 2, span + 4, 3); g.fillRect(M - 2, M - 2, 3, span + 4);
+    this.bgs[T.G] = c;
+    return c;
   }
 }

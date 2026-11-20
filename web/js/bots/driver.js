@@ -70,7 +70,7 @@ export function botDriver({ gameId, bots, getState, apply }) {
 
 // Tempo para a pessoa acompanhar: animação dos dados, salto da peça etc.
 function waitFor(gameId, state) {
-  if (gameId === 'plano-quadrante') {
+  if (gameId === 'dominio-da-teia') {
     if (state.phase === 'roll') return 650;
     if (state.phase === 'bonus') return 800;
     return 1050; // depois da rolagem: dados girando (750 ms)

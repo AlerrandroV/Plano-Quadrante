@@ -1,4 +1,4 @@
-// ROBÔ DO PLANO QUADRANTE
+// ROBÔ DO DOMÍNIO DA TEIA
 //
 // O jogo é novo: não há teoria. O robô decide olhando cada jogada possível,
 // aplicando-a e avaliando o resultado. O que muda entre os níveis é o que
@@ -18,7 +18,7 @@
 //              adversário, incluindo os movimentos extras das peças
 //              evoluídas. Usa o bônus para se posicionar e escolhe o
 //              melhor alvo para cada carta.
-import * as G from '../games/plano-quadrante/rules.js';
+import * as G from '../games/dominio-da-teia/rules.js';
 
 export const LEVELS = {
   facil: { danger: true, bonusSight: false, noise: 10, forgetBonus: 0.5, distracted: 0.25 },
@@ -223,7 +223,8 @@ function reachCounts(state, o, me, bonusSight) {
       const consider = (x, y) => { const k = `${x},${y}`; if (mine.has(k)) hit.add(k); };
       if (canPlace) { consider(dx, 0); consider(0, dy); }
       for (const q of theirs) {
-        for (const [nx, ny] of [[G.wrap(q.x + dx), q.y], [q.x, G.wrap(q.y + dy)]]) {
+        for (const [nx, ny] of [[q.x + dx, q.y], [q.x, q.y + dy]]) {
+          if (!G.inside(nx, ny)) continue; // a teia acaba na borda
           const k = `${nx},${ny}`;
           if (own.has(k)) continue;
           consider(nx, ny);
@@ -231,7 +232,8 @@ function reachCounts(state, o, me, bonusSight) {
             for (const [ddx, ddy] of G.DIRS8) {
               let x = nx; let y = ny;
               for (let s = 1; s <= q.level; s++) {
-                x = G.wrap(x + ddx); y = G.wrap(y + ddy);
+                x += ddx; y += ddy;
+                if (!G.inside(x, y)) break;
                 if (own.has(`${x},${y}`)) continue;
                 consider(x, y);
               }

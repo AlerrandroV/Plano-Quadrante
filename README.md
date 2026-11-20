@@ -1,13 +1,14 @@
 # Plano Quadrante · plataforma de jogos
 
 Plataforma de **jogos de tabuleiro e de cartas para jogar junto, sem
-internet**, com visual retrô pixelado. Começou com o *Plano Quadrante*, um
+internet**, com visual retrô pixelado. O app se chama Plano Quadrante e
+começou com um jogo novo, hoje chamado *Domínio da Teia*, um
 jogo novo sobre o plano cartesiano, e agora reúne vários jogos com a mesma
 identidade visual.
 
 | Jogo | Jogadores | Espectadores |
 |---|---|---|
-| **Plano Quadrante** | 2 a 4 | sim |
+| **Domínio da Teia** (antes "Plano Quadrante") | 2 a 4 | sim |
 | **Damas** (regras brasileiras, 8×8) | 2 | sim |
 | **Dominó** (batida ou pontos) | 2 a 4 | sim (só na sala Wi-Fi ou você contra robôs) |
 
@@ -24,25 +25,28 @@ O mesmo código roda de três jeitos, e **descobre sozinho** em qual está:
 - **Mestre da sala:** escolhe o jogo de cada partida no catálogo e decide quem joga e quem assiste.
 - **Placar da sala:** mostra quem ganhou mais partidas. Na mesma tela, o placar da mesa soma as vitórias por nome.
 
-## Regras do Plano Quadrante
+## Regras do Domínio da Teia
 
-Cada jogador tem 8 peões na reserva. O tabuleiro tem 81 interseções, de
-(-4, -4) a (4, 4), com o centro em (0, 0). A moldura tem cores fixas:
-azul em cima, laranja à direita, verde embaixo e vermelho à esquerda.
+As peças são **aranhas** numa **teia** de 81 pontos, de (-4, -4) a (4, 4),
+com o centro em (0, 0). Cada ponto se liga aos vizinhos por fios que se
+curvam em direção aos eixos X0 e Y0, e os eixos são fios retos. Os fios da
+borda têm cores fixas: azul em cima, laranja à direita, verde embaixo e
+vermelho à esquerda. Cada jogador tem 8 aranhas na reserva.
 
 1. **Na sua vez, role os dois dados octaedros (1 a 4).** O dado *quente* anda
    na horizontal: vermelho para a esquerda, laranja para a direita. O dado
    *frio* anda na vertical: verde para baixo, azul para cima.
 2. **Use um dos dois dados** para:
-   - **colocar** uma peça da reserva, contando a partir do centro: em (dado quente, 0) ou (0, dado frio);
-   - **mover** uma peça sua essa quantidade de casas na direção do dado.
-3. **Tabuleiro infinito:** quem sai por um lado volta pelo outro.
-4. **Captura (obrigatória):** cair numa peça inimiga a captura. Ela vai para
-   o seu **cativeiro**, a sua peça sobe um nível (máximo 4) e você joga de novo.
-   Uma peça colocada capturando já entra no nível 1.
-5. **Bônus de nível:** depois de mover, uma peça de nível N pode andar até N
-   casas extras em linha reta, em qualquer uma das 8 direções. Pode pular por
-   cima das próprias peças e capturar no fim.
+   - **pôr** uma aranha da reserva, contando a partir do centro: em (dado quente, 0) ou (0, dado frio);
+   - **mover** uma aranha sua essa quantidade de pontos na direção do dado.
+3. **A teia acaba na borda:** um movimento que sairia da teia não pode ser
+   feito. (Antes o tabuleiro era infinito, e quem saía voltava pelo outro lado.)
+4. **Captura (obrigatória):** cair numa aranha inimiga a captura. Ela vai
+   para o seu **cativeiro**, a sua aranha sobe um nível (máximo 4) e você joga
+   de novo. Uma aranha posta capturando já entra no nível 1.
+5. **Bônus de nível:** depois de mover, uma aranha de nível N pode andar até
+   N pontos extras em linha reta, em qualquer uma das 8 direções, só até a
+   borda. Pode pular por cima das próprias aranhas e capturar no fim.
 6. **Cartas:** dados com o mesmo número dão uma carta especial, que você usa
    na hora ou descarta: Bloqueio, Reverso, Salvar, +1 de nível, -1 de nível e
    Jogar novamente.
@@ -55,7 +59,7 @@ azul em cima, laranja à direita, verde embaixo e vermelho à esquerda.
 
 O PDF de regras, o `manual.html` e o protótipo (`script.js`) às vezes
 dizem coisas diferentes. Estas foram as escolhas (todas marcadas com
-`DECISÃO` em `web/js/games/plano-quadrante/rules.js`):
+`DECISÃO` em `web/js/games/dominio-da-teia/rules.js`):
 
 | Ponto | Escolha | Por quê |
 |---|---|---|
@@ -124,14 +128,14 @@ enquanto quem divide o lado com ele fica recolhido (só ícone e números).
 web/                      a plataforma (HTML/CSS/JS puro, sem build)
   js/env.js               detecção do modo + link do APK
   js/games/index.js       ← CATÁLOGO: lista de jogos, ilustrações, capacidade
-  js/games/plano-quadrante/rules.js, ui.js
+  js/games/dominio-da-teia/rules.js, ui.js
   js/games/damas/rules.js, ui.js
-  js/ui/pixel.js          paleta, peões, pedras, dados (pixel art em canvas)
+  js/ui/pixel.js          pixel art 2x gerada em código (aranhas, peões, pedras, dados, peças de dominó, fonte 5x7)
   js/ui/table.js          "mesa" comum: grade simétrica, painéis, registro, ajuda
   js/ui/platform.js       catálogo, seletor de cores, placar
   js/ui/colors.js         as 10 cores e a regra de cores únicas
   js/games/domino/rules.js, ui.js
-  js/bots/                robôs (damas: alfa-beta; Plano Quadrante: perigo; dominó: memória e bloqueio) + Web Worker
+  js/bots/                robôs (damas: alfa-beta; Domínio da Teia: perigo; dominó: memória e bloqueio) + Web Worker
   js/ui/modal.js          janelas do próprio jogo (no lugar de confirm/prompt/dialog do navegador)
   js/modes/menu.js        menu do app: Mesma tela / Criar sala / Entrar numa sala (código ou salas na rede)
   js/ui/sound.js          efeitos sonoros 16 bits sintetizados (Web Audio, sem arquivos)
@@ -202,7 +206,7 @@ quantos meios-lances o robô enxerga à frente:
 
 A busca nunca para no meio de uma sequência de capturas obrigatórias.
 
-**Plano Quadrante** (`web/js/bots/plano-quadrante.js`): o robô testa cada
+**Domínio da Teia** (`web/js/bots/dominio-da-teia.js`): o robô testa cada
 jogada possível (colocar ou mover, cartas, bônus) e avalia o resultado. O
 nível muda o que ele *percebe*:
 - **Fácil:** jogador distraído. Em 1 de cada 4 jogadas ignora o perigo, julga com erro e esquece o bônus na metade das vezes.
@@ -215,10 +219,10 @@ Medido em partidas entre robôs (`test/bots.test.mjs` garante que continua assim
 |---|---|
 | Damas: Médio × Fácil | ~80% de vitórias do Médio |
 | Damas: Difícil × Médio | 9 vitórias, 1 empate e nenhuma derrota em 10 partidas |
-| Plano Quadrante: Médio × Fácil | ~89% de vitórias do Médio |
-| Plano Quadrante: Difícil × Médio | ~63% de vitórias do Difícil |
+| Domínio da Teia: Médio × Fácil | ~91% de vitórias do Médio |
+| Domínio da Teia: Difícil × Médio | ~68% de vitórias do Difícil |
 
-As simulações também mostraram algo sobre o Plano Quadrante: **perceber o
+As simulações também mostraram algo sobre o Domínio da Teia: **perceber o
 perigo de ser capturado é a habilidade que mais pesa**. Ignorá-la em 1/3 das
 jogadas já faz perder ~80% das partidas, mesmo com a sorte dos dados.
 Esquecer o próprio bônus, sozinho, quase não muda o resultado.
@@ -276,6 +280,33 @@ raiz do domínio. O convite aponta para o IP local do celular do mestre
 fazer com um site `AlerrandroV.github.io`, mas aí quem **não** tem o app
 precisaria de internet para abrir o convite. O botão *Abrir no app* resolve
 com um toque, sem domínio e sem internet.
+
+## Pixel art em 2x
+
+Tudo o que é desenhado nos jogos tem o dobro de pixels por peça:
+
+| Peça | Tamanho |
+|---|---|
+| Peão | 24×24 |
+| Pedra de damas | 28×28 |
+| Dado | 42×42 |
+| Peça de dominó | 24×48 |
+| Aranha | 24×24 |
+| Teia do Domínio da Teia | 300 px |
+| Tabuleiro de damas | 316 px |
+| Mesa do dominó | 352 px |
+
+Continua pixelado, mas com espaço para detalhe:
+- sombreado em 5 tons, brilho e contornos;
+- espessura e anel nas pedras, coroa com pedra vermelha;
+- chanfro, pino e pontos redondos no dominó;
+- a teia com fios curvos, nós de seda e orvalho, e os números das coordenadas no Domínio da Teia;
+- textura nas casas e no feltro.
+
+As peças são geradas por forma + luz (`ui/pixel.js`) e guardadas em cache,
+e o fundo dos tabuleiros é desenhado uma vez só. Num celular comum, o
+Domínio da Teia e as damas aparecem em 100%, nítidos. Em telas menores que
+o tabuleiro, a redução é suavizada, para não sumir linha fina.
 
 ## Sons e janelas
 
